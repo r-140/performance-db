@@ -5,7 +5,7 @@ import java.util.logging.Logger;
 public class BTreeIndex {
     private static final Logger LOGGER = Logger.getLogger(BTreeIndex.class.getName());
     private BTreeNode root;
-    private int t;
+    private int t; // B-Tree is defined by the term minimum degree ‘t‘. The value of ‘t‘ depends upon disk block size.
     private RandomAccessFile file;
     private long nodeCounter = 0;
 

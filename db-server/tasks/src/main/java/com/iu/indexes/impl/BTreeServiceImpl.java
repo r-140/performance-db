@@ -25,17 +25,12 @@ public class BTreeServiceImpl implements TreesIndexService {
 //        read all data from datafile
            Map<Integer, Long> indexCandidate = FileHelper.readFile(PATH_TO_DATA_FILE, false);
            for (Map.Entry<Integer, Long> entry : indexCandidate.entrySet()) {
-//               try {
-                   Integer K = entry.getKey();
-                   Long V = entry.getValue();
-                   if(K.equals(5)) {
-                       System.out.println("fsdf");
-                   }
-                   index.insert(K, V);
-//               } catch (Exception e) {
-//                   LOGGER.log(Level.INFO, "exception has been thrown " + e.getMessage());
-//                   e.printStackTrace();
-//               }
+               Integer K = entry.getKey();
+               Long V = entry.getValue();
+               if(K.equals(5)) {
+                   System.out.println("fsdf");
+               }
+               index.insert(K, V);
            }
            index.traverse();
            IndexKeeper.INSTANCE.getBTreeIndexes().put(file, index);
