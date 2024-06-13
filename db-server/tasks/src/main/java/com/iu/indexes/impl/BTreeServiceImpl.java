@@ -53,7 +53,11 @@ public class BTreeServiceImpl implements TreesIndexService {
 
         BTreeIndex index = IndexKeeper.INSTANCE.getBTreeIndexes().get(file);
 
-        return index.search((int)id);
+        Long result =  index.search((int)id);
+
+        LOGGER.info("found offset in btree index " + result);
+
+        return result;
     }
 
     @Override

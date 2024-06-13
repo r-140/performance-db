@@ -9,6 +9,8 @@ import com.iu.indexes.impl.LSMTreeServiceImpl;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 
+import static com.iu.worker.AbstractTask.DISC_PATH;
+
 public enum IndexTypes {
     HASH_INDEX("hashIndex", null) {
         private HashIndexService hashIndexService = new HashIndexServiceImpl();
@@ -52,7 +54,7 @@ public enum IndexTypes {
         private final TreesIndexService treesIndexService = new BTreeServiceImpl();
         @Override
         public Object findAddrInIndex(Object id) throws IOException {
-            return treesIndexService.findAddrInIndex(getIndexFileName(), id);
+            return treesIndexService.findAddrInIndex(DISC_PATH + "/" + getIndexFileName(), id);
         }
 
         @Override
