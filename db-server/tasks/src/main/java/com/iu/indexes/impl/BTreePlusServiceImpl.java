@@ -14,12 +14,13 @@ import java.util.logging.Logger;
 import static com.iu.worker.AbstractTask.PATH_TO_DATA_FILE;
 
 public class BTreePlusServiceImpl implements TreesIndexService {
+    private static final int DEFAULT_MIN_DEGREE = 3;
     private static final Logger LOGGER = Logger.getLogger(BTreePlusServiceImpl.class.getName());
 
     @Override
     public void createIndex(String file, String indexType) throws IOException {
         LOGGER.log(Level.INFO, String.format("createIndex: file %s, indexType %s", file, indexType));
-        BPlusTreeIndex index = new BPlusTreeIndex(file);
+        BPlusTreeIndex index = new BPlusTreeIndex(file, DEFAULT_MIN_DEGREE);
 //        read all data from datafile
         Map<Integer, Long> indexCandidate = FileHelper.readFile(PATH_TO_DATA_FILE, false);
         for (Map.Entry<Integer, Long> entry : indexCandidate.entrySet()) {
@@ -27,7 +28,7 @@ public class BTreePlusServiceImpl implements TreesIndexService {
             Long V = entry.getValue();
             index.insert(K, V);
         }
-
+        index.traverse();
         IndexKeeper.INSTANCE.getBPlusTreeIndexes().put(file, index);
     }
 
@@ -43,11 +44,11 @@ public class BTreePlusServiceImpl implements TreesIndexService {
     }
 
     @Override
-    public void addValueToIndex(String file, Object id, Object value) {
+    public void addValueToIndex(String file, Object id, Object value) throws IOException {
         if (!(id instanceof Integer))
             throw new IllegalArgumentException("Object id has to be an Integer type");
         BPlusTreeIndex index = IndexKeeper.INSTANCE.getBPlusTreeIndexes().get(file);
-        index.insert((int)id, value);
+        index.insert((int)id, (Long) value);
     }
 
 }

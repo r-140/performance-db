@@ -37,12 +37,12 @@ public enum IndexTypes {
         private final TreesIndexService treesIndexService = new LSMTreeServiceImpl();
         @Override
         public Object findAddrInIndex(Object id) throws IOException {
-            return treesIndexService.findAddrInIndex(getIndexFileName(), id);
+            return treesIndexService.findAddrInIndex(DISC_PATH + "/" + getIndexFileName(), id);
         }
 
         @Override
         public void addValueToIndex(Object id, Long value) throws IOException {
-            treesIndexService.addValueToIndex(getIndexFileName(), id, value);
+            treesIndexService.addValueToIndex(DISC_PATH + "/"+ getIndexFileName(), id, value);
         }
 
         @Override
@@ -59,7 +59,7 @@ public enum IndexTypes {
 
         @Override
         public void addValueToIndex(Object id, Long value) throws IOException {
-            treesIndexService.addValueToIndex(getIndexFileName(), id, value);
+            treesIndexService.addValueToIndex(DISC_PATH + "/" + getIndexFileName(), id, value);
         }
 
         @Override
@@ -71,12 +71,12 @@ public enum IndexTypes {
         private final TreesIndexService treesIndexService = new BTreePlusServiceImpl();
         @Override
         public Object findAddrInIndex(Object id) throws IOException {
-            return treesIndexService.findAddrInIndex(getIndexFileName(), id);
+            return treesIndexService.findAddrInIndex(DISC_PATH + "/" + getIndexFileName(), id);
         }
 
         @Override
         public void addValueToIndex(Object id, Long value) throws IOException {
-            treesIndexService.addValueToIndex(getIndexFileName(), id, value);
+            treesIndexService.addValueToIndex(DISC_PATH + "/" + getIndexFileName(), id, value);
         }
 
         @Override

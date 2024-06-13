@@ -27,9 +27,6 @@ public class BTreeServiceImpl implements TreesIndexService {
            for (Map.Entry<Integer, Long> entry : indexCandidate.entrySet()) {
                Integer K = entry.getKey();
                Long V = entry.getValue();
-               if(K.equals(5)) {
-                   System.out.println("fsdf");
-               }
                index.insert(K, V);
            }
            index.traverse();

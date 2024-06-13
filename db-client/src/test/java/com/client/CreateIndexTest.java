@@ -34,6 +34,16 @@ public class CreateIndexTest {
         assertNotNull(result);
     }
 
+    @Test
+    public void testCreateBPlusTreeTask(){
+        String indexType = "bplustree";
+        String result = createIndex(indexType);
+
+        System.out.println("Result " + result);
+
+        assertNotNull(result);
+    }
+
 
 //    public static void main(String... args) throws IOException {
 //
