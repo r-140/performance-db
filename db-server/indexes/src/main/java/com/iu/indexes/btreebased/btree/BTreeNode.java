@@ -1,107 +1,53 @@
 package com.iu.indexes.btreebased.btree;
+import java.io.RandomAccessFile;
+import java.io.IOException;
 
-import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.RandomAccessFile;
+import java.io.IOException;
 
 class BTreeNode {
-    int t;  // Минимальная степень B-дерева
-    List<Integer> keys;  // Список ключей в узле
-    List<Long> values;  // Список значений (смещения данных на диске)
-    List<Long> children;  // Список дочерних узлов (позиции в файле)
-    boolean isLeaf;  // Листовой узел или нет
-    long position;  // Позиция узла в файле
+    int[] keys;
+    Long[] values;
+    int t;
+    BTreeNode[] children;
+    int n;
+    boolean leaf;
+    long position;
 
-    public BTreeNode(int t, boolean isLeaf) {
+    public BTreeNode(int t, boolean leaf, long position) {
         this.t = t;
-        this.isLeaf = isLeaf;
-        this.keys = new ArrayList<>();
-        this.values = new ArrayList<>();
-        this.children = new ArrayList<>();
+        this.leaf = leaf;
+        this.position = position;
+        this.keys = new int[2 * t - 1];
+        this.values = new Long[2 * t - 1];
+        this.children = new BTreeNode[2 * t];
+        this.n = 0;
     }
 
-    public void insertNonFull(int key, long value, BTreeIndex tree) throws IOException {
-        int i = keys.size() - 1;
-
-        if (isLeaf) {
-            keys.add(0);  // Добавляем временный ключ
-            values.add(0L);  // Добавляем временное значение
-            while (i >= 0 && keys.get(i) > key) {
-                keys.set(i + 1, keys.get(i));
-                values.set(i + 1, values.get(i));
-                i--;
-            }
-            keys.set(i + 1, key);
-            values.set(i + 1, value);
-            tree.writeNode(this);
-        } else {
-            while (i >= 0 && keys.get(i) > key) {
-                i--;
-            }
-            i++;
-            BTreeNode child = tree.readNode(children.get(i));
-            if (child.keys.size() == 2 * t - 1) {
-                splitChild(i, child, tree);
-                if (keys.get(i) < key) {
-                    i++;
-                }
-            }
-            tree.readNode(children.get(i)).insertNonFull(key, value, tree);
-        }
-    }
-
-    public void splitChild(int i, BTreeNode y, BTreeIndex tree) throws IOException {
-        BTreeNode z = new BTreeNode(y.t, y.isLeaf);
-        z.position = tree.allocateNodePosition();
-        for (int j = 0; j < t - 1; j++) {
-            z.keys.add(y.keys.remove(t));
-            z.values.add(y.values.remove(t));
-        }
-
-        if (!y.isLeaf) {
-            for (int j = 0; j < t; j++) {
-                z.children.add(y.children.remove(t));
-            }
-        }
-
-        children.add(i + 1, z.position);
-        keys.add(i, y.keys.remove(t - 1));
-        values.add(i, y.values.remove(t - 1));
-
-        tree.writeNode(y);
-        tree.writeNode(z);
-        tree.writeNode(this);
-    }
-
-    public void traverse(BTreeIndex tree) throws IOException {
+    public void traverse() {
         int i;
-        for (i = 0; i < keys.size(); i++) {
-            if (!isLeaf) {
-                tree.readNode(children.get(i)).traverse(tree);
+        for (i = 0; i < n; i++) {
+            if (!leaf) {
+                children[i].traverse();
             }
-            System.out.print(" " + keys.get(i) + ":" + values.get(i));
+            System.out.print(" (" + keys[i] + ", " + values[i] + ")");
         }
-
-        if (!isLeaf) {
-            tree.readNode(children.get(i)).traverse(tree);
+        if (!leaf) {
+            children[i].traverse();
         }
     }
 
-    public Long search(int key, BTreeIndex tree) throws IOException {
+    public Long search(int key) {
         int i = 0;
-        while (i < keys.size() && key > keys.get(i)) {
+        while (i < n && key > keys[i]) {
             i++;
         }
-
-        if (i < keys.size() && keys.get(i) == key) {
-            return values.get(i);
+        if (i < n && keys[i] == key) {
+            return values[i];
         }
-
-        if (isLeaf) {
+        if (leaf) {
             return null;
         }
-
-        return tree.readNode(children.get(i)).search(key, tree);
+        return children[i].search(key);
     }
 }
-

@@ -37,7 +37,7 @@ public class BTreeServiceImpl implements TreesIndexService {
 //                   e.printStackTrace();
 //               }
            }
-
+           index.traverse();
            IndexKeeper.INSTANCE.getBTreeIndexes().put(file, index);
        } catch (Exception e) {
            LOGGER.log(Level.INFO, "exception has been thrown " + e.getMessage());
