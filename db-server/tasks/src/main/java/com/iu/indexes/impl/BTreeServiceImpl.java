@@ -16,25 +16,26 @@ import static com.iu.worker.AbstractTask.PATH_TO_DATA_FILE;
 public class BTreeServiceImpl implements TreesIndexService {
     private static final Logger LOGGER = Logger.getLogger(BTreeServiceImpl.class.getName());
 
+    private static final int DEFAULT_MIN_DEGREE = 3;
     @Override
     public void createIndex(String file, String indexType) throws IOException {
         LOGGER.log(Level.FINE, String.format("createIndex: file %s, indexType %s", file, indexType));
        try {
-           BTreeIndex index = new BTreeIndex(file);
+           BTreeIndex index = new BTreeIndex(file, DEFAULT_MIN_DEGREE);
 //        read all data from datafile
            Map<Integer, Long> indexCandidate = FileHelper.readFile(PATH_TO_DATA_FILE, false);
            for (Map.Entry<Integer, Long> entry : indexCandidate.entrySet()) {
-               try {
+//               try {
                    Integer K = entry.getKey();
                    Long V = entry.getValue();
-                   if(K.equals(8)) {
+                   if(K.equals(5)) {
                        System.out.println("fsdf");
                    }
                    index.insert(K, V);
-               } catch (Exception e) {
-                   LOGGER.log(Level.INFO, "exception has been thrown " + e.getMessage());
-                   e.printStackTrace();
-               }
+//               } catch (Exception e) {
+//                   LOGGER.log(Level.INFO, "exception has been thrown " + e.getMessage());
+//                   e.printStackTrace();
+//               }
            }
 
            IndexKeeper.INSTANCE.getBTreeIndexes().put(file, index);
@@ -46,7 +47,7 @@ public class BTreeServiceImpl implements TreesIndexService {
 
 //    todo add logging
     @Override
-    public Object findAddrInIndex(String file, Object id) {
+    public Object findAddrInIndex(String file, Object id) throws IOException {
         if (!(id instanceof Integer))
             throw new IllegalArgumentException("Object id has to be an Integer type");
 
@@ -56,11 +57,11 @@ public class BTreeServiceImpl implements TreesIndexService {
     }
 
     @Override
-    public void addValueToIndex(String file, Object id, Object value) {
+    public void addValueToIndex(String file, Object id, Object value) throws IOException {
         if (!(id instanceof Integer))
             throw new IllegalArgumentException("Object id has to be an Integer type");
         BTreeIndex index = IndexKeeper.INSTANCE.getBTreeIndexes().get(file);
-        index.insert((int)id, value);
+        index.insert((int)id, (Long) value);
     }
 
 }

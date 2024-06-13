@@ -34,12 +34,12 @@ public enum IndexTypes {
     LSMTREE("lsmtree", "lsmtree.dat") {
         private final TreesIndexService treesIndexService = new LSMTreeServiceImpl();
         @Override
-        public Object findAddrInIndex(Object id) {
+        public Object findAddrInIndex(Object id) throws IOException {
             return treesIndexService.findAddrInIndex(getIndexFileName(), id);
         }
 
         @Override
-        public void addValueToIndex(Object id, Long value) {
+        public void addValueToIndex(Object id, Long value) throws IOException {
             treesIndexService.addValueToIndex(getIndexFileName(), id, value);
         }
 
@@ -51,12 +51,12 @@ public enum IndexTypes {
     BTREE("btree", "btree.dat") {
         private final TreesIndexService treesIndexService = new BTreeServiceImpl();
         @Override
-        public Object findAddrInIndex(Object id) {
+        public Object findAddrInIndex(Object id) throws IOException {
             return treesIndexService.findAddrInIndex(getIndexFileName(), id);
         }
 
         @Override
-        public void addValueToIndex(Object id, Long value) {
+        public void addValueToIndex(Object id, Long value) throws IOException {
             treesIndexService.addValueToIndex(getIndexFileName(), id, value);
         }
 
@@ -68,12 +68,12 @@ public enum IndexTypes {
     BPLUSTREE("bplustree", "bplustree.dat") {
         private final TreesIndexService treesIndexService = new BTreePlusServiceImpl();
         @Override
-        public Object findAddrInIndex(Object id) {
+        public Object findAddrInIndex(Object id) throws IOException {
             return treesIndexService.findAddrInIndex(getIndexFileName(), id);
         }
 
         @Override
-        public void addValueToIndex(Object id, Long value) {
+        public void addValueToIndex(Object id, Long value) throws IOException {
             treesIndexService.addValueToIndex(getIndexFileName(), id, value);
         }
 
@@ -125,9 +125,9 @@ public enum IndexTypes {
         return indexFileName;
     }
 
-    public abstract Object findAddrInIndex(Object id);
+    public abstract Object findAddrInIndex(Object id) throws IOException;
 
-    public abstract void addValueToIndex(Object id, Long value);
+    public abstract void addValueToIndex(Object id, Long value) throws IOException;
 
     public abstract void createIndex(String file, String indexType) throws IOException;
 

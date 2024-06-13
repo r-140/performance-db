@@ -10,8 +10,8 @@ public interface TreesIndexService {
 
 //    boolean checkIndexExists(String file, String indexType) throws IOException;
 
-    Object findAddrInIndex(String file, Object id);
+    Object findAddrInIndex(String file, Object id) throws IOException;
 
-    void addValueToIndex(String file, Object id, Object value);
+    void addValueToIndex(String file, Object id, Object value) throws IOException;
 
 }

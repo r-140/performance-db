@@ -1,7 +1,6 @@
 package com.iu.indexes.btreebased.bplustree;
 
 import com.iu.indexes.Index;
-import com.iu.indexes.btreebased.btree.BTreeIndex;
 import com.iu.indexes.util.FileUtil;
 
 import java.io.*;
