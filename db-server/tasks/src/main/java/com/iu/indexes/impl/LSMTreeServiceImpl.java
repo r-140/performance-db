@@ -17,35 +17,35 @@ public class LSMTreeServiceImpl  implements TreesIndexService {
     @Override
     public void createIndex(String file, String indexType) throws IOException {
         LOGGER.log(Level.INFO, String.format("createIndex: file %s, indexType %s", file, indexType));
-//        todo add mergeTrsold into constant
-        LSMTreeIndex index = new LSMTreeIndex(file, 10);
+//        todo add MEMTABLE_LIMIT as a parameter
+        LSMTreeIndex index = new LSMTreeIndex(file);
 //        read all data from datafile
         Map<Integer, Long> indexCandidate = FileHelper.readFile(PATH_TO_DATA_FILE, false);
         for (Map.Entry<Integer, Long> entry : indexCandidate.entrySet()) {
             Integer K = entry.getKey();
             Long V = entry.getValue();
-            index.insert(K, V);
+            index.put(K, V);
         }
 
         IndexKeeper.INSTANCE.getLsmTreeIndexes().put(file, index);
     }
 
     @Override
-    public Object findAddrInIndex(String file, Object id) {
+    public Object findAddrInIndex(String file, Object id) throws IOException {
         if (!(id instanceof Integer))
             throw new IllegalArgumentException("Object id has to be an Integer type");
 
         LSMTreeIndex index = IndexKeeper.INSTANCE.getLsmTreeIndexes().get(file);
 
-        return index.search((int)id);
+        return index.get((int)id);
     }
 
     @Override
-    public void addValueToIndex(String file, Object id, Object value) {
+    public void addValueToIndex(String file, Object id, Object value) throws IOException {
         if (!(id instanceof Integer))
             throw new IllegalArgumentException("Object id has to be an Integer type");
         LSMTreeIndex index = IndexKeeper.INSTANCE.getLsmTreeIndexes().get(file);
-        index.insert((int)id, value);
+        index.put((int)id, (Long) value);
     }
 
 }

@@ -44,6 +44,16 @@ public class CreateIndexTest {
         assertNotNull(result);
     }
 
+    @Test
+    public void testCreateLSMTreeTask(){
+        String indexType = "lsmtree";
+        String result = createIndex(indexType);
+
+        System.out.println("Result " + result);
+
+        assertNotNull(result);
+    }
+
 
 //    public static void main(String... args) throws IOException {
 //
