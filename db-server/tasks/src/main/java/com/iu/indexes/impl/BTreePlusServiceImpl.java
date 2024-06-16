@@ -35,13 +35,22 @@ public class BTreePlusServiceImpl implements TreesIndexService {
 
 //    todo add logging
     @Override
-    public Object findAddrInIndex(String file, Object id) {
+    public Object findAddrInIndex(String file, Object id) throws IOException {
         if (!(id instanceof Integer))
             throw new IllegalArgumentException("Object id has to be an Integer type");
 
         BPlusTreeIndex index = IndexKeeper.INSTANCE.getBPlusTreeIndexes().get(file);
-
         return index.search((int)id);
+
+// todo       the code below throws number format exception
+//        try {
+//            BPlusTreeIndex index = new BPlusTreeIndex(file, 3);
+//            return index.search((int)id);
+//        } catch (Exception e) {
+//            LOGGER.info(" " + e.getMessage());
+//        }
+//
+//        return null;
     }
 
     @Override
