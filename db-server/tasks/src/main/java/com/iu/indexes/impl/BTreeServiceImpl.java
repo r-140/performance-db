@@ -56,8 +56,23 @@ public class BTreeServiceImpl implements TreesIndexService {
     public void addValueToIndex(String file, Object id, Object value) throws IOException {
         if (!(id instanceof Integer))
             throw new IllegalArgumentException("Object id has to be an Integer type");
+//        todo read index from file
         BTreeIndex index = IndexKeeper.INSTANCE.getBTreeIndexes().get(file);
         index.insert((int)id, (Long) value);
+    }
+
+    @Override
+    public void deleteValueFromIndex(String file, Object id) throws IOException {
+        if (!(id instanceof Integer))
+            throw new IllegalArgumentException("Object id has to be an Integer type");
+
+        BTreeIndex index = IndexKeeper.INSTANCE.getBTreeIndexes().get(file);
+        index.remove((Integer) id);
+    }
+
+    @Override
+    public void deleteIndex(String file) throws IOException {
+        FileHelper.removeFile(file);
     }
 
 }

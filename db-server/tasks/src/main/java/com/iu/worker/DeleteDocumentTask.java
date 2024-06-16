@@ -11,13 +11,13 @@ import java.util.concurrent.locks.StampedLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-class FindDocumentTask extends AbstractTask {
+class DeleteDocumentTask extends AbstractTask {
 
-    private static final Logger LOGGER = Logger.getLogger(FindDocumentTask.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(DeleteDocumentTask.class.getName());
 
     private static final StampedLock lock = new StampedLock();
 
-    FindDocumentTask(Socket connection, String taskPayload) {
+    DeleteDocumentTask(Socket connection, String taskPayload) {
         super(connection, taskPayload);
     }
 
@@ -28,31 +28,22 @@ class FindDocumentTask extends AbstractTask {
             LOGGER.log(Level.INFO, String.format("Find document task: %s", taskPayload));
             final Integer idVal = (Integer) JsonHelper.getValueFromJsonByKey(taskPayload, "id");
 
-            final String indexType = (String) JsonHelper.getValueFromJsonByKey(taskPayload, "indexType");
-
-            LOGGER.log(Level.FINE, String.format("Find document task: id %s, indexType %s", idVal, indexType));
-
-            IndexTypes indexTypes = IndexTypes.getIndexByType(indexType);
-            String result;
-            if (indexTypes == null || indexTypes.equals(IndexTypes.NONE)) {
-                result = FileHelper.findLineInFileByIdField(PATH_TO_DATA_FILE, idVal);
-            } else {
-                Long offset = (Long) indexTypes.findAddrInIndex(idVal);
-
-                LOGGER.log(Level.INFO, String.format("find document offset %s", offset));
-
-                result = offset != null ? FileHelper.findLineByOffset(PATH_TO_DATA_FILE, offset)
-                        : FileHelper.findLineInFileByIdField(PATH_TO_DATA_FILE, idVal);
-            }
+            String result = FileHelper.findLineInFileByIdField(PATH_TO_DATA_FILE, idVal);
 
             LOGGER.log(Level.INFO, String.format("Find document: found result %s", result));
+            FileHelper.removeLineFromFile(PATH_TO_DATA_FILE, result);
+
+            for (IndexTypes indexTypes : IndexTypes.values()) {
+                if(indexTypes.equals(IndexTypes.NONE)) {
+                    continue;
+                }
+                indexTypes.deleteAddrFromIndex(idVal);
+            }
             ObjectOutputStream oos = new ObjectOutputStream(connection.getOutputStream());
             if (result != null && !result.isEmpty())
                 oos.writeObject(result);
             else
                 oos.writeObject("");
-
-            oos.close();
         } catch (IOException e) {
             //report exception somewhere.
             e.printStackTrace();

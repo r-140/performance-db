@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.iu.worker.AbstractTask.SNAPSHOT_FILE;
+
 public class HashIndexServiceImpl implements HashIndexService {
     private static final Logger LOGGER = Logger.getLogger(HashIndexServiceImpl.class.getName());
 
@@ -51,5 +53,20 @@ public class HashIndexServiceImpl implements HashIndexService {
         if (!(id instanceof Integer))
             throw new IllegalArgumentException("Object id has to be an Integer type");
         IndexKeeper.INSTANCE.getHashIndex().put((Integer) id, value);
+    }
+
+    @Override
+    public void deleteValueFromIndex(Object id) {
+        if (!(id instanceof Integer))
+            throw new IllegalArgumentException("Object id has to be an Integer type");
+
+        IndexKeeper.INSTANCE.getHashIndex().remove(id);
+
+    }
+
+    @Override
+    public void deleteIndex() throws IOException {
+        IndexKeeper.INSTANCE.getHashIndex().clear();
+        FileHelper.removeFile(SNAPSHOT_FILE);
     }
 }

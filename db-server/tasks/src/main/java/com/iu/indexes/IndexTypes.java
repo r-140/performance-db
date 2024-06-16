@@ -29,59 +29,102 @@ public enum IndexTypes {
             hashIndexService.createIndex(file, indexType);
         }
 
+        @Override
+        public void deleteIndex(String indexType) throws IOException {
+            hashIndexService.deleteIndex();
+        }
+
+        @Override
+        public void deleteAddrFromIndex(Object id) {
+            hashIndexService.deleteValueFromIndex(id);
+        }
+
         public void recoverIndex(String file) throws IOException {
             hashIndexService.recoverIndex(file);
         }
     },
     LSMTREE("lsmtree", "lsmtree.dat") {
+        private final String FILE_PATH = DISC_PATH + "/" + getIndexFileName();
         private final TreesIndexService treesIndexService = new LSMTreeServiceImpl();
         @Override
         public Object findAddrInIndex(Object id) throws IOException {
-            return treesIndexService.findAddrInIndex(DISC_PATH + "/" + getIndexFileName(), id);
+            return treesIndexService.findAddrInIndex(FILE_PATH, id);
         }
 
         @Override
         public void addValueToIndex(Object id, Long value) throws IOException {
-            treesIndexService.addValueToIndex(DISC_PATH + "/"+ getIndexFileName(), id, value);
+            treesIndexService.addValueToIndex(FILE_PATH, id, value);
         }
 
         @Override
         public void createIndex(String file, String indexType) throws IOException {
             treesIndexService.createIndex(file, indexType);
+        }
+
+        @Override
+        public void deleteIndex(String indexType) throws IOException {
+            treesIndexService.deleteIndex(FILE_PATH);
+        }
+
+        @Override
+        public void deleteAddrFromIndex(Object id) throws IOException {
+            treesIndexService.deleteValueFromIndex(FILE_PATH, id);
         }
     },
     BTREE("btree", "btree.dat") {
+        private final String FILE_PATH = DISC_PATH + "/" + getIndexFileName();
         private final TreesIndexService treesIndexService = new BTreeServiceImpl();
         @Override
         public Object findAddrInIndex(Object id) throws IOException {
-            return treesIndexService.findAddrInIndex(DISC_PATH + "/" + getIndexFileName(), id);
+            return treesIndexService.findAddrInIndex(FILE_PATH, id);
         }
 
         @Override
         public void addValueToIndex(Object id, Long value) throws IOException {
-            treesIndexService.addValueToIndex(DISC_PATH + "/" + getIndexFileName(), id, value);
+            treesIndexService.addValueToIndex(FILE_PATH, id, value);
         }
 
         @Override
         public void createIndex(String file, String indexType) throws IOException {
             treesIndexService.createIndex(file, indexType);
+        }
+
+        @Override
+        public void deleteIndex(String indexType) throws IOException {
+            treesIndexService.deleteIndex(FILE_PATH);
+        }
+
+        @Override
+        public void deleteAddrFromIndex(Object id) throws IOException {
+            treesIndexService.deleteValueFromIndex(FILE_PATH, id);
         }
     },
     BPLUSTREE("bplustree", "bplustree.dat") {
+        private final String FILE_PATH = DISC_PATH + "/" + getIndexFileName();
         private final TreesIndexService treesIndexService = new BTreePlusServiceImpl();
         @Override
         public Object findAddrInIndex(Object id) throws IOException {
-            return treesIndexService.findAddrInIndex(DISC_PATH + "/" + getIndexFileName(), id);
+            return treesIndexService.findAddrInIndex(FILE_PATH, id);
         }
 
         @Override
         public void addValueToIndex(Object id, Long value) throws IOException {
-            treesIndexService.addValueToIndex(DISC_PATH + "/" + getIndexFileName(), id, value);
+            treesIndexService.addValueToIndex(FILE_PATH, id, value);
         }
 
         @Override
         public void createIndex(String file, String indexType) throws IOException {
             treesIndexService.createIndex(file, indexType);
+        }
+
+        @Override
+        public void deleteIndex(String indexType) throws IOException {
+            treesIndexService.deleteIndex(FILE_PATH);
+        }
+
+        @Override
+        public void deleteAddrFromIndex(Object id) throws IOException {
+            treesIndexService.deleteValueFromIndex(FILE_PATH, id);
         }
     },
     NONE("none", "none") {
@@ -97,6 +140,16 @@ public enum IndexTypes {
 
         @Override
         public void createIndex(String file, String indexType) throws IOException {
+            throw new IllegalStateException("Invalid method call");
+        }
+
+        @Override
+        public void deleteIndex(String indexType) throws IOException {
+            throw new IllegalStateException("Invalid method call");
+        }
+
+        @Override
+        public void deleteAddrFromIndex(Object id) {
             throw new IllegalStateException("Invalid method call");
         }
     };
@@ -132,6 +185,10 @@ public enum IndexTypes {
     public abstract void addValueToIndex(Object id, Long value) throws IOException;
 
     public abstract void createIndex(String file, String indexType) throws IOException;
+
+    public abstract void deleteIndex(String indexType) throws IOException;
+
+    public abstract void deleteAddrFromIndex(Object id) throws IOException;
 
     public void recoverIndex(String snapshotFile) throws IOException {
         throw new IllegalStateException("Imvalid method call");

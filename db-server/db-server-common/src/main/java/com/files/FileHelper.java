@@ -12,16 +12,38 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- * Use FileOutputStream to write binary data to a file. FileOutputStream is meant for writing streams of raw bytes
- * such as image data.
- * For writing streams of characters, consider using FileHelper.
- */
-//todo create different writers for buffer or filechannel, interface and factory
-//todo implement reindexing operations
 public class FileHelper {
-    //    private static final Object monitor = new Object();
     private static final Logger LOGGER = Logger.getLogger(FileHelper.class.getName());
+
+    public static void removeLineFromFile(String filePath, String lineToRemove) throws IOException {
+        File inputFile = new File(filePath);
+        File tempFile = new File(inputFile.getAbsolutePath() + ".tmp");
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(inputFile));
+             BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
+
+            String currentLine;
+            while ((currentLine = reader.readLine()) != null) {
+                // Trim newline when comparing with lineToRemove
+                String trimmedLine = currentLine.trim();
+                if (trimmedLine.equals(lineToRemove)) {
+                    continue;
+                }
+                writer.write(currentLine + System.lineSeparator());
+            }
+        }
+
+        // Delete the original file
+        if (!inputFile.delete()) {
+            LOGGER.info("Could not delete file");
+            return;
+        }
+
+        // Rename the new file to the filename the original file had
+        if (!tempFile.renameTo(inputFile)) {
+            System.out.println("Could not rename file");
+        }
+    }
 
 
     public static long writeToFile(final String pathToFile, final String data, boolean isAppend) throws IOException {
@@ -38,7 +60,7 @@ public class FileHelper {
         return docMap;
     }
 
-    public static String findLineInFileByField(String file, Object field) throws IOException {
+    public static String findLineInFileByIdField(String file, Object field) throws IOException {
         RandomAccessFile aFile = new RandomAccessFile(file, "rw");
         final String found = findLineByIdRec(aFile, field, 0);
         aFile.close();
@@ -104,6 +126,11 @@ public class FileHelper {
         }
     }
 
+    public static void removeFile(String file) throws IOException {
+        Path path = Paths.get(file);
+        Files.delete(path);
+    }
+
     private static Map<Integer, Long> readHashSnapshotFileRecursively(Map<Integer, Long> docMap, RandomAccessFile aFile, long pos) throws IOException {
         aFile.seek(pos);
         final String line = aFile.readLine();
@@ -147,7 +174,7 @@ public class FileHelper {
     private static Map<Integer, Long> readFileRecursively(Map<Integer, Long> docMap, RandomAccessFile aFile, long pos) throws IOException {
         aFile.seek(pos);
         String line = aFile.readLine();
-        if (line == null || line.length() == 0)
+        if (line == null || line.isEmpty())
             return docMap;
 
         final String[] tok = line.split(CommonConsts.ID_SEPARATOR, 2);
@@ -157,13 +184,15 @@ public class FileHelper {
         docMap.put(Integer.valueOf(tok[0]), pos);
         pos = pos + line.length() + System.lineSeparator().length();
 
+//        pos = pos + line.length();
+
         return readFileRecursively(docMap, aFile, pos);
     }
 
     private static String findLineByIdRec(RandomAccessFile aFile, Object field, long pos) throws IOException {
         aFile.seek(pos);
         String line = aFile.readLine();
-        if (line == null || line.length() == 0)
+        if (line == null || line.isEmpty())
             return line;
 
         final String[] tok = line.split(CommonConsts.ID_SEPARATOR, 2);
@@ -179,7 +208,7 @@ public class FileHelper {
     private static boolean isLineExist(RandomAccessFile aFile, Object field, long pos) throws IOException {
         aFile.seek(pos);
         String line = aFile.readLine();
-        if (line == null || line.length() == 0)
+        if (line == null || line.isEmpty())
             return false;
 
 

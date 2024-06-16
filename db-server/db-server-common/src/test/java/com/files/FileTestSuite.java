@@ -7,7 +7,8 @@ import org.junit.runners.Suite;
 
 @Suite.SuiteClasses({
         WriteToFileTest.class,
-        ReadFromFileTest.class
+        ReadFromFileTest.class,
+        DeleteLineFromFileTest.class
 })
 public class FileTestSuite {
 

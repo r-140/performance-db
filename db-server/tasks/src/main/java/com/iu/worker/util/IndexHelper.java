@@ -5,10 +5,14 @@ import com.iu.indexes.IndexKeeper;
 
 import java.io.IOException;
 
-
+//todo add unit tests
 public class IndexHelper {
     public static void addIndexToRegistry(String file, String indexType) throws IOException {
         FileHelper.writeToFile(file, indexType, true);
+    }
+
+    public static void deleteIndexFromRegistry(String file, String lineToRemove) throws IOException {
+        FileHelper.removeLineFromFile(file, lineToRemove);
     }
 
     public static boolean checkIndexExistence(String file, String indexType) throws IOException {
