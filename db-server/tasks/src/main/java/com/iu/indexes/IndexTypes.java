@@ -25,12 +25,12 @@ public enum IndexTypes {
         }
 
         @Override
-        public void createIndex(String file, String indexType) throws IOException {
-            hashIndexService.createIndex(file, indexType);
+        public void createIndex(String file) throws IOException {
+            hashIndexService.createIndex(file);
         }
 
         @Override
-        public void deleteIndex(String indexType) throws IOException {
+        public void deleteIndex() throws IOException {
             hashIndexService.deleteIndex();
         }
 
@@ -57,12 +57,12 @@ public enum IndexTypes {
         }
 
         @Override
-        public void createIndex(String file, String indexType) throws IOException {
-            treesIndexService.createIndex(file, indexType);
+        public void createIndex(String file) throws IOException {
+            treesIndexService.createIndex(file);
         }
 
         @Override
-        public void deleteIndex(String indexType) throws IOException {
+        public void deleteIndex() throws IOException {
             treesIndexService.deleteIndex(FILE_PATH);
         }
 
@@ -85,12 +85,12 @@ public enum IndexTypes {
         }
 
         @Override
-        public void createIndex(String file, String indexType) throws IOException {
-            treesIndexService.createIndex(file, indexType);
+        public void createIndex(String file) throws IOException {
+            treesIndexService.createIndex(file);
         }
 
         @Override
-        public void deleteIndex(String indexType) throws IOException {
+        public void deleteIndex() throws IOException {
             treesIndexService.deleteIndex(FILE_PATH);
         }
 
@@ -113,12 +113,12 @@ public enum IndexTypes {
         }
 
         @Override
-        public void createIndex(String file, String indexType) throws IOException {
-            treesIndexService.createIndex(file, indexType);
+        public void createIndex(String file) throws IOException {
+            treesIndexService.createIndex(file);
         }
 
         @Override
-        public void deleteIndex(String indexType) throws IOException {
+        public void deleteIndex() throws IOException {
             treesIndexService.deleteIndex(FILE_PATH);
         }
 
@@ -139,12 +139,12 @@ public enum IndexTypes {
         }
 
         @Override
-        public void createIndex(String file, String indexType) throws IOException {
+        public void createIndex(String file) throws IOException {
             throw new IllegalStateException("Invalid method call");
         }
 
         @Override
-        public void deleteIndex(String indexType) throws IOException {
+        public void deleteIndex() throws IOException {
             throw new IllegalStateException("Invalid method call");
         }
 
@@ -184,9 +184,9 @@ public enum IndexTypes {
 
     public abstract void addValueToIndex(Object id, Long value) throws IOException;
 
-    public abstract void createIndex(String file, String indexType) throws IOException;
+    public abstract void createIndex(String file) throws IOException;
 
-    public abstract void deleteIndex(String indexType) throws IOException;
+    public abstract void deleteIndex() throws IOException;
 
     public abstract void deleteAddrFromIndex(Object id) throws IOException;
 

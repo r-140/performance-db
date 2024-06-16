@@ -33,7 +33,7 @@ class CreateIndexTask extends AbstractTask {
                 LOGGER.log(Level.INFO, String.format("CreateIndexTask: is index exists ?  %s", isIndexExist));
                 ObjectOutputStream oos = new ObjectOutputStream(connection.getOutputStream());
                 if (!isIndexExist) {
-                    indexType.createIndex(DISC_PATH + "/" + indexType.getIndexFileName(), taskPayload);
+                    indexType.createIndex(DISC_PATH + "/" + indexType.getIndexFileName());
 
                     addIndexToRegistry(PATH_TO_INDEX_REGISTRY, taskPayload);
                     oos.writeObject("Index with the type " + taskPayload + " has been created");

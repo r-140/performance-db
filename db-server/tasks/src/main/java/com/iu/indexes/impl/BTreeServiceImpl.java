@@ -12,14 +12,15 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.iu.worker.AbstractTask.PATH_TO_DATA_FILE;
+import static com.iu.worker.AbstractTask.PATH_TO_INDEX_REGISTRY;
 
 public class BTreeServiceImpl implements TreesIndexService {
     private static final Logger LOGGER = Logger.getLogger(BTreeServiceImpl.class.getName());
 
     private static final int DEFAULT_MIN_DEGREE = 3;
     @Override
-    public void createIndex(String file, String indexType) throws IOException {
-        LOGGER.log(Level.FINE, String.format("createIndex: file %s, indexType %s", file, indexType));
+    public void createIndex(String file) throws IOException {
+        LOGGER.log(Level.FINE, String.format("createIndex: file %s", file));
        try {
            BTreeIndex index = new BTreeIndex(file, DEFAULT_MIN_DEGREE);
 //        read all data from datafile
@@ -73,6 +74,7 @@ public class BTreeServiceImpl implements TreesIndexService {
     @Override
     public void deleteIndex(String file) throws IOException {
         FileHelper.removeFile(file);
+        FileHelper.removeLineFromFile(PATH_TO_INDEX_REGISTRY, "btree");
     }
 
 }

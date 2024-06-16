@@ -15,8 +15,8 @@ public class HashIndexServiceImpl implements HashIndexService {
     private static final Logger LOGGER = Logger.getLogger(HashIndexServiceImpl.class.getName());
 
     @Override
-    public void createIndex(String file, String indexType) throws IOException {
-        LOGGER.log(Level.INFO, String.format("createIndex: file %s, indexType %s", file, indexType));
+    public void createIndex(String file) throws IOException {
+        LOGGER.log(Level.INFO, String.format("createIndex: file %s", file));
         Map<Integer, Long> hashIndexCandidate = FileHelper.readFile(file, false);
 
         LOGGER.log(Level.FINE, String.format("createIndex(): data for hash index %s", hashIndexCandidate.size()));

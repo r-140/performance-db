@@ -11,12 +11,13 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.iu.worker.AbstractTask.PATH_TO_DATA_FILE;
+import static com.iu.worker.AbstractTask.PATH_TO_INDEX_REGISTRY;
 
 public class LSMTreeServiceImpl  implements TreesIndexService {
     private static final Logger LOGGER = Logger.getLogger(LSMTreeServiceImpl.class.getName());
     @Override
-    public void createIndex(String file, String indexType) throws IOException {
-        LOGGER.log(Level.INFO, String.format("createIndex: file %s, indexType %s", file, indexType));
+    public void createIndex(String file) throws IOException {
+        LOGGER.log(Level.INFO, String.format("createIndex: file %s", file));
 //        todo add MEMTABLE_LIMIT as a parameter
         LSMTreeIndex index = new LSMTreeIndex(file);
 //        read all data from datafile
@@ -60,6 +61,7 @@ public class LSMTreeServiceImpl  implements TreesIndexService {
     @Override
     public void deleteIndex(String file) throws IOException {
         FileHelper.removeFile(file);
+        FileHelper.removeLineFromFile(PATH_TO_INDEX_REGISTRY, "lsmtree");
     }
 
 }

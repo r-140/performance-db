@@ -29,10 +29,10 @@ class DeleteIndexTask extends AbstractTask {
             IndexTypes indexType = IndexTypes.getIndexByType(taskPayload);
             if(indexType != null && !IndexTypes.NONE.equals(indexType)) {
                 boolean isIndexExist = checkIndexExistence(PATH_TO_INDEX_REGISTRY, taskPayload);
-                LOGGER.log(Level.INFO, String.format("CreateIndexTask: is index exists ?  %s", isIndexExist));
+                LOGGER.log(Level.INFO, String.format("DeleteIndexTask: is index exists ?  %s", isIndexExist));
                 ObjectOutputStream oos = new ObjectOutputStream(connection.getOutputStream());
                 if (isIndexExist) {
-                    indexType.deleteIndex(DISC_PATH + "/" + indexType.getIndexFileName());
+                    indexType.deleteIndex();
 
                     deleteIndexFromRegistry(PATH_TO_INDEX_REGISTRY, taskPayload);
                     oos.writeObject("Index with the type " + taskPayload + " has been deleted");
