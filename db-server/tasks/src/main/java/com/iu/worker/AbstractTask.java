@@ -1,5 +1,7 @@
 package com.iu.worker;
 
+import java.io.IOException;
+import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.concurrent.Callable;
 
@@ -21,5 +23,14 @@ public class AbstractTask implements Callable<Void> {
     @Override
     public Void call() throws Exception {
         return null;
+    }
+
+    protected void writeResponse(Socket connection, String body) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(connection.getOutputStream())) {
+            oos.writeObject(body);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        //ignore
     }
 }

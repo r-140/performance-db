@@ -59,8 +59,8 @@ public class LSMTreeServiceImpl  implements TreesIndexService {
     }
 
     @Override
-    public void deleteIndex(String file) throws IOException {
-        FileHelper.removeFile(file);
+    public void deleteIndex(String fileDir) throws IOException {
+        FileHelper.deleteFilesWithPattern(fileDir, "lsmtree");
         FileHelper.removeLineFromFile(PATH_TO_INDEX_REGISTRY, "lsmtree");
     }
 

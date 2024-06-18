@@ -3,14 +3,14 @@ package com.files;
 import com.util.CommonConsts;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 public class FileHelper {
     private static final Logger LOGGER = Logger.getLogger(FileHelper.class.getName());
@@ -61,22 +61,20 @@ public class FileHelper {
     }
 
     public static String findLineInFileByIdField(String file, Object field) throws IOException {
-        RandomAccessFile aFile = new RandomAccessFile(file, "rw");
-        final String found = findLineByIdRec(aFile, field, 0);
-        aFile.close();
-        LOGGER.info(String.format("findLineInFileByField(): found %S", found));
-
-        return found;
+        try (RandomAccessFile aFile = new RandomAccessFile(file, "rw")) {
+            final String found = findLineByIdRec(aFile, field, 0);
+            LOGGER.info(String.format("findLineInFileByField(): found %s", found));
+            return found;
+        }
     }
 
     public static String findLineByOffset(String file, long pos) throws IOException {
-        RandomAccessFile aFile = new RandomAccessFile(file, "rw");
-        aFile.seek(pos);
-        String line = aFile.readLine();
-
-        LOGGER.fine(String.format("found line " + line));
-
-        return line;
+        try (RandomAccessFile aFile = new RandomAccessFile(file, "rw")) {
+            aFile.seek(pos);
+            String line = aFile.readLine();
+            LOGGER.fine(String.format("found line %s", line));
+            return line;
+        }
     }
 
     public static boolean createDirectoryIfNotExist(String dirPath) {
@@ -97,9 +95,21 @@ public class FileHelper {
     }
 
     public static boolean isLineInFileExist(String file, String line) throws IOException {
-        RandomAccessFile aFile = new RandomAccessFile(file, "rw");
+        try (RandomAccessFile aFile = new RandomAccessFile(file, "rw")) {
+            return isLineExist(aFile, line, 0);
+        }
+    }
 
-        return isLineExist(aFile, line, 0);
+    public static boolean findLineInFile(String filePath, String lineToFind) throws IOException {
+        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
+            String currentLine;
+            while ((currentLine = reader.readLine()) != null) {
+                if (currentLine.trim().equals(lineToFind)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     //    used to be synchronized, now ReadWriteLock is being used
@@ -124,6 +134,27 @@ public class FileHelper {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public static void deleteFilesWithPattern(String directoryPath, String pattern) throws IOException {
+        Path dirPath = Paths.get(directoryPath);
+        Pattern regexPattern = Pattern.compile(pattern);
+
+        // Check if the directory exists
+        if (!Files.exists(dirPath) || !Files.isDirectory(dirPath)) {
+            throw new IOException("The specified path is not a directory or does not exist.");
+        }
+
+        Files.walkFileTree(dirPath, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                // Check if the file name matches the pattern
+                if (regexPattern.matcher(file.getFileName().toString()).find()) {
+                    Files.delete(file);
+                }
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     public static void removeFile(String file) throws IOException {

@@ -4,7 +4,7 @@ Feature: Create and Delete BTree Index
     Given creating or deleting index with type "btree"
     When the create index request is sent
     Then the output should be "Index with the type btree has been created"
-#TODO FIX ALL SCENARIOUS BELOW
+
   Scenario: Create already existing BTree Index
     Given creating or deleting index with type "btree"
     When the create index request is sent

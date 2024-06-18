@@ -50,9 +50,7 @@ class AppendDocumentTask extends AbstractTask {
                 }
             }
 
-            ObjectOutputStream oos = new ObjectOutputStream(connection.getOutputStream());
-            oos.writeObject(String.format("Document with id %s has been created", id));
-            oos.close();
+            writeResponse(connection, String.format("Document with id %s has been created", id));
             LOGGER.log(Level.FINEST, String.format("Request processed offset: %s", offset));
         } catch (IOException e) {
             //report exception somewhere.

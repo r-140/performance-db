@@ -39,13 +39,10 @@ class DeleteDocumentTask extends AbstractTask {
                 }
                 indexTypes.deleteAddrFromIndex(idVal);
             }
-            ObjectOutputStream oos = new ObjectOutputStream(connection.getOutputStream());
-            if (result != null && !result.isEmpty())
-                oos.writeObject(result);
-            else
-                oos.writeObject("");
+            writeResponse(connection, result);
         } catch (IOException e) {
             //report exception somewhere.
+            writeResponse(connection, e.getMessage());
             e.printStackTrace();
         } finally {
             lock.unlockWrite(stamp);

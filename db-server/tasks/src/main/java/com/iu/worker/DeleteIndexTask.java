@@ -30,23 +30,26 @@ class DeleteIndexTask extends AbstractTask {
             if(indexType != null && !IndexTypes.NONE.equals(indexType)) {
                 boolean isIndexExist = checkIndexExistence(PATH_TO_INDEX_REGISTRY, taskPayload);
                 LOGGER.log(Level.INFO, String.format("DeleteIndexTask: is index exists ?  %s", isIndexExist));
-                ObjectOutputStream oos = new ObjectOutputStream(connection.getOutputStream());
+
+                String responseBody;
                 if (isIndexExist) {
                     indexType.deleteIndex();
-
                     deleteIndexFromRegistry(PATH_TO_INDEX_REGISTRY, taskPayload);
-                    oos.writeObject("Index with the type " + taskPayload + " has been deleted");
+                    responseBody =  "Index with the type " + taskPayload + " has been deleted";
+
                 } else {
-                    oos.writeObject("Index with the type " + taskPayload + " does not exist");
+                    responseBody = "Index with the type " + taskPayload + " does not exist";
                 }
 
-                oos.close();
+                writeResponse(connection, responseBody);
+
             } else {
                 LOGGER.info("Unexpected index type");
-                throw new IllegalStateException("Unexpected Index Type");
+                writeResponse(connection, "Unexpected Index Type");
             }
         } catch (IOException e) {
             //report exception somewhere.
+                writeResponse(connection, e.getMessage());
             e.printStackTrace();
         } finally {
             lock.unlockWrite(stamp);
@@ -58,4 +61,6 @@ class DeleteIndexTask extends AbstractTask {
         }
         return null;
     }
+
+
 }

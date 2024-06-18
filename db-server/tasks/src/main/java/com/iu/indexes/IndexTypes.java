@@ -63,7 +63,7 @@ public enum IndexTypes {
 
         @Override
         public void deleteIndex() throws IOException {
-            treesIndexService.deleteIndex(FILE_PATH);
+            treesIndexService.deleteIndex(DISC_PATH);
         }
 
         @Override

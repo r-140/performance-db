@@ -4,7 +4,7 @@ Feature: Create and Delete LSMTree Index
     Given creating or deleting index with type "lsmtree"
     When the create index request is sent
     Then the output should be "Index with the type lsmtree has been created"
-#TODO FIX ALL SCENARIOUS BELOW
+
   Scenario: Create already existing LSMTree Index
     Given creating or deleting index with type "lsmtree"
     When the create index request is sent

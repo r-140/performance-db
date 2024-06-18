@@ -17,7 +17,7 @@ public class IndexHelper {
 
     public static boolean checkIndexExistence(String file, String indexType) throws IOException {
         return FileHelper.isFileExist(file) &&
-                FileHelper.isLineInFileExist(file, indexType);
+                FileHelper.findLineInFile(file, indexType);
     }
 
     public static void writeHashIndexToDisc(String snapshotFile) throws IOException {

@@ -31,20 +31,20 @@ class CreateIndexTask extends AbstractTask {
             if(indexType != null && !IndexTypes.NONE.equals(indexType)) {
                 boolean isIndexExist = checkIndexExistence(PATH_TO_INDEX_REGISTRY, taskPayload);
                 LOGGER.log(Level.INFO, String.format("CreateIndexTask: is index exists ?  %s", isIndexExist));
-                ObjectOutputStream oos = new ObjectOutputStream(connection.getOutputStream());
+
+                String responseBody;
                 if (!isIndexExist) {
                     indexType.createIndex(DISC_PATH + "/" + indexType.getIndexFileName());
 
                     addIndexToRegistry(PATH_TO_INDEX_REGISTRY, taskPayload);
-                    oos.writeObject("Index with the type " + taskPayload + " has been created");
+                    responseBody = "Index with the type " + taskPayload + " has been created";
                 } else {
-                    oos.writeObject("Index with the type " + taskPayload + " already exist");
+                    responseBody = "Index with the type " + taskPayload + " already exist";
                 }
-
-                oos.close();
+                writeResponse(connection, responseBody);
             } else {
                 LOGGER.info("Unexpected index type");
-                throw new IllegalStateException("Unexpected Index Type");
+                writeResponse(connection, "Unexpected Index Type");
             }
         } catch (IOException e) {
             //report exception somewhere.
