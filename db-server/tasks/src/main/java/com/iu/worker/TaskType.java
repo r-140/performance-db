@@ -24,7 +24,20 @@ public enum TaskType {
         public AbstractTask getTask(Socket connection, String taskPayload) {
             return new CreateIndexTask(connection, taskPayload);
         }
-    };
+    },
+    DELETE_INDEX("deleteIndex") {
+        @Override
+        public AbstractTask getTask(Socket connection, String taskPayload) {
+            return new DeleteIndexTask(connection, taskPayload);
+        }
+    },
+    DELETE_DOC("delete") {
+        @Override
+        public AbstractTask getTask(Socket connection, String taskPayload) {
+            return new DeleteDocumentTask(connection, taskPayload);
+        }
+    }
+    ;
 
     private final String taskType;
 

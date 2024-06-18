@@ -9,12 +9,13 @@ public class BTreeTest {
 
             bTree.insert(10, 1l);
             bTree.insert(20, 2l);
-            bTree.insert(5, 5l);
-            bTree.insert(6, 6l);
-            bTree.insert(12, 7l);
-            bTree.insert(30, 8l);
-            bTree.insert(7, 9l);
-            bTree.insert(17, 17l);
+            bTree.insert(30, 5l);
+            bTree.insert(40, 6l);
+            bTree.insert(50, 7l);
+            bTree.insert(60, 8l);
+            bTree.insert(70, 9l);
+            bTree.insert(80, 17l);
+            bTree.insert(90, 17l);
 
             System.out.println("Traversal of the constructed B-tree is:");
             bTree.traverse();

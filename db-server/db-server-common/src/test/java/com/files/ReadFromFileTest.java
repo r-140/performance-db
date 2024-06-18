@@ -13,10 +13,8 @@ import static org.junit.Assert.assertEquals;
 /**
  * Created by Illia_Ushakov on 4/22/2019.
  */
-// TODO: 4/22/2019 implement test cases
-    @Ignore
+@Ignore
 public class ReadFromFileTest extends AbstractTest{
-    // TODO: 5/2/2019 clarify how to put relative path via classloader getResource
 //
     @Test
     public void readSnapshotFileTest(){

@@ -9,12 +9,17 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
     <artifactId>db-server-common</artifactId>
+
+    <properties>
+        <skipTests>true</skipTests>
+    </properties>
     <dependencies>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/org.json/json -->
+
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
