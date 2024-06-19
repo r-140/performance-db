@@ -25,21 +25,25 @@ class DeleteDocumentTask extends AbstractTask {
     public Void call() {
         long stamp = lock.writeLock();
         try {
-            LOGGER.log(Level.INFO, String.format("Find document task: %s", taskPayload));
+            LOGGER.log(Level.INFO, String.format("Delete document task: %s", taskPayload));
             final Integer idVal = (Integer) JsonHelper.getValueFromJsonByKey(taskPayload, "id");
 
-            String result = FileHelper.findLineInFileByIdField(PATH_TO_DATA_FILE, idVal);
+            final String found = FileHelper.findLineInFileByIdField(PATH_TO_DATA_FILE, idVal);
+            if(found == null || found.isEmpty()) {
+                writeResponse(connection, String.format("the document with id %s was not found", idVal));
+            } else {
 
-            LOGGER.log(Level.INFO, String.format("Find document: found result %s", result));
-            FileHelper.removeLineFromFile(PATH_TO_DATA_FILE, result);
+                LOGGER.log(Level.INFO, String.format("Delete document: found document %s", found));
+                FileHelper.removeLineFromFile(PATH_TO_DATA_FILE, found);
 
-            for (IndexTypes indexTypes : IndexTypes.values()) {
-                if(indexTypes.equals(IndexTypes.NONE)) {
-                    continue;
+                for (IndexTypes indexTypes : IndexTypes.values()) {
+                    if (indexTypes.equals(IndexTypes.NONE)) {
+                        continue;
+                    }
+                    indexTypes.deleteAddrFromIndex(idVal);
                 }
-                indexTypes.deleteAddrFromIndex(idVal);
             }
-            writeResponse(connection, result);
+            writeResponse(connection, String.format("the document with id %s has been removed", idVal));
         } catch (IOException e) {
             //report exception somewhere.
             writeResponse(connection, e.getMessage());

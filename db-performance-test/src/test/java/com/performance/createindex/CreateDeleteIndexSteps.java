@@ -11,13 +11,13 @@ import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class CreateIndexSteps {
+public class CreateDeleteIndexSteps {
 
     private String input;
     private String output;
 
     @Given("creating or deleting index with type {string}")
-    public void prepareInputForHashIndexCreation(String input) {
+    public void prepareInputForIndexOperation(String input) {
         this.input = input;
     }
 
