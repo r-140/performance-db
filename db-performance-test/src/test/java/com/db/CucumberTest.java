@@ -1,4 +1,4 @@
-package com.performance;
+package com.db;
 
 import io.cucumber.junit.Cucumber;
 import io.cucumber.junit.CucumberOptions;

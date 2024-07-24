@@ -1,4 +1,4 @@
-package com.performance;
+package com.db;
 
 import com.iu.dbclient.DBConnection;
 import com.iu.dbclient.DbConnector;
@@ -28,8 +28,8 @@ public class DbUtil {
         return null;
     }
 
-    public static void generateTestData() {
-        for (int i =0; i < 100; i++) {
+    public static void generateTestData(int max) {
+        for (int i =0; i < max; i++) {
             String payload = new JSONObject()
                     .put("data", "testdata" + i)
                     .put("id", i).toString();

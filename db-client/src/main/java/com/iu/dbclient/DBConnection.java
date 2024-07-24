@@ -41,12 +41,10 @@ public class DBConnection {
         bindConnection();
 //        todo specify logic
         ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-        System.out.println("Sending request to Socket Server");
         oos.writeObject(bean);
 
         ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
         String message = (String) ois.readObject();
-        System.out.println("Message: " + message);
 
         return message;
     }

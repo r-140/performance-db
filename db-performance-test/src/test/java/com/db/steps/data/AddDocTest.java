@@ -1,11 +1,11 @@
-package com.performance.steps.data;
+package com.db.steps.data;
 
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.json.JSONObject;
 
-import static com.performance.DbUtil.execute;
+import static com.db.DbUtil.execute;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class AddDocTest {

@@ -1,10 +1,10 @@
-package com.performance.steps.createindex;
+package com.db.steps.createindex;
 
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
-import static com.performance.DbUtil.execute;
+import static com.db.DbUtil.execute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CreateDeleteIndexSteps {

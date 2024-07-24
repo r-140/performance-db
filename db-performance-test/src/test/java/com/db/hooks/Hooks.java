@@ -1,16 +1,16 @@
-package com.performance.hooks;
+package com.db.hooks;
 
 import io.cucumber.java.AfterAll;
 import io.cucumber.java.BeforeAll;
 
-import static com.performance.DbUtil.generateTestData;
-import static com.performance.DbUtil.removeDB;
+import static com.db.DbUtil.generateTestData;
+import static com.db.DbUtil.removeDB;
 
 public class Hooks {
     @BeforeAll
     public void setup(){
         removeDB();
-        generateTestData();
+        generateTestData(100);
     }
 
     @AfterAll
