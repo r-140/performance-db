@@ -1,14 +1,10 @@
-package com.performance.createindex;
+package com.performance.steps.createindex;
 
-import com.iu.dbclient.DBConnection;
-import com.iu.dbclient.DbConnector;
-import com.message.MessageBean;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 
-import java.io.IOException;
-
+import static com.performance.DbUtil.execute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CreateDeleteIndexSteps {
@@ -36,21 +32,7 @@ public class CreateDeleteIndexSteps {
         assertEquals(expectedOutput, output);
     }
 
-
-        private static String createOrDeleteIndex(String indexType, String taskType) {
-
-        DBConnection connection= null;
-            try {
-                connection = DbConnector.INSTANCE.getConnection("localhost", 5555);
-
-                return connection.createIndex(new MessageBean(taskType, indexType));
-
-            } catch (IOException | ClassNotFoundException e) {
-                e.printStackTrace();
-            } finally {
-                if (connection!= null)
-                    connection.close();
-            }
-            return null;
-        }
+    private String createOrDeleteIndex(String indexType, String taskType) {
+        return execute(taskType, indexType);
+    }
 }

@@ -36,6 +36,12 @@ public enum TaskType {
         public AbstractTask getTask(Socket connection, String taskPayload) {
             return new DeleteDocumentTask(connection, taskPayload);
         }
+    },
+    DELETE_DB("deleteDb") {
+        @Override
+        public AbstractTask getTask(Socket connection, String taskPayload) {
+            return new DeleteDBTask(connection, taskPayload);
+        }
     }
     ;
 

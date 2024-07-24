@@ -38,12 +38,12 @@ Feature: Find and Delete Data
   Scenario: Delete non existing document
     Given delete document with id 10000
     When the delete document request is sent
-    Then the result should be "the document with id 9 was not found"
+    Then the result should be "the document with id 10000 was not found"
 
   Scenario: Delete existing document
-    Given delete document with id 9
+    Given delete document with id 11
     When the delete document request is sent
-    Then the result of deletion should be "the document with id 9 has been removed"
+    Then the result of deletion should be "the document with id 11 has been removed"
 
 
 

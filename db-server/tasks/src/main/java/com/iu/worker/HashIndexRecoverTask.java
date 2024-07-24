@@ -29,7 +29,7 @@ public class HashIndexRecoverTask implements Callable<Void> {
 
                 LOGGER.log(Level.INFO, "HashIndexRecoverTask(): index recovered");
             } else {
-                LOGGER.log(Level.INFO, "hash indexes did not exist");
+                LOGGER.log(Level.INFO, "Hash index did not exist");
             }
         } catch (IOException e) {
             //report exception somewhere.

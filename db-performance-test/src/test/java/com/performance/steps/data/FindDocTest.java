@@ -1,17 +1,12 @@
-package com.performance.data;
+package com.performance.steps.data;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.iu.dbclient.DBConnection;
-import com.iu.dbclient.DbConnector;
-import com.message.MessageBean;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.json.JSONObject;
 
-import java.io.IOException;
 
+import static com.performance.DbUtil.execute;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class FindDocTest {
@@ -66,35 +61,18 @@ public class FindDocTest {
         assertNull(readOrDeleteDoc(id, "bplustree", "find"));
         assertNull(readOrDeleteDoc(id, "btree", "find"));
         assertNull(readOrDeleteDoc(id, "lsmtree", "find"));
-
     }
 
-    private static String readOrDeleteDoc(int id, String indexType, String taskType) {
-        DBConnection connection= null;
-            try {
-                connection = DbConnector.INSTANCE.getConnection("localhost", 5555);
+    private String readOrDeleteDoc(int id, String indexType, String taskType) {
+        String payload = buildRequestBody(taskType, id, indexType);
 
-                String payload = buildRequestBody(taskType, id, indexType) ;
-
-                return connection.readData(new MessageBean(taskType, payload));
-
-            } catch (IOException | ClassNotFoundException e) {
-                e.printStackTrace();
-            } finally {
-                if (connection!= null)
-                    connection.close();
-            }
-
-            return null;
+        return execute(taskType, payload);
     }
 
     private static String buildRequestBody(String taskType, int id, String indexType) {
-
         return "find".equals(taskType) ? new JSONObject()
-                .put("indexType", indexType)
-                .put("id", id).toString()
-                :
-                new JSONObject().put("id", id).toString();
+                .put("indexType", indexType).put("id", id).toString()
+                : new JSONObject().put("id", id).toString();
     }
 
 }
