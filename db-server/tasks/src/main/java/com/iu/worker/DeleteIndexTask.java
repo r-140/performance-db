@@ -1,9 +1,9 @@
 package com.iu.worker;
 
 import com.iu.indexes.IndexTypes;
+import com.json.JsonHelper;
 
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.concurrent.locks.StampedLock;
 import java.util.logging.Level;
@@ -14,6 +14,8 @@ import static com.iu.worker.util.IndexHelper.*;
 class DeleteIndexTask extends AbstractTask {
 
     private static final Logger LOGGER = Logger.getLogger(DeleteIndexTask.class.getName());
+
+    private static final String REPLACE_INDEX_TYPE_PATTERN = "{indexType}";
 
     private static final StampedLock lock = new StampedLock();
 
@@ -38,18 +40,21 @@ class DeleteIndexTask extends AbstractTask {
                     responseBody =  "Index with the type " + taskPayload + " has been deleted";
 
                 } else {
-                    responseBody = "Index with the type " + taskPayload + " does not exist";
+                    String errorMessage = ErrorCode.INDEXDOESNOTEXIST.getErrorMessage().replace(REPLACE_INDEX_TYPE_PATTERN, taskPayload);
+                    responseBody = JsonHelper.buildErrorResponse(ErrorCode.INDEXDOESNOTEXIST.getErrorCode(), errorMessage, "");
                 }
 
                 writeResponse(connection, responseBody);
 
             } else {
                 LOGGER.info("Unexpected index type");
-                writeResponse(connection, "Unexpected Index Type");
+                writeResponse(connection, JsonHelper.buildErrorResponse(ErrorCode.UNEXPECTEDINDEXTYPE.getErrorCode(),
+                        ErrorCode.UNEXPECTEDINDEXTYPE.getErrorMessage(), ""));
             }
         } catch (IOException e) {
             //report exception somewhere.
-                writeResponse(connection, e.getMessage());
+            writeResponse(connection, JsonHelper.buildErrorResponse(ErrorCode.IOEXCEPTION.getErrorCode(),
+                    ErrorCode.IOEXCEPTION.getErrorMessage(), e.getMessage()));
             e.printStackTrace();
         } finally {
             lock.unlockWrite(stamp);

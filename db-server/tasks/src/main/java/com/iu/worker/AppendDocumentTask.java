@@ -50,10 +50,12 @@ class AppendDocumentTask extends AbstractTask {
                 }
             }
 
-            writeResponse(connection, String.format("Document with id %s has been created", id));
+            writeResponse(connection, docStr);
             LOGGER.log(Level.FINEST, String.format("Request processed offset: %s", offset));
         } catch (IOException e) {
             //report exception somewhere.
+            writeResponse(connection, JsonHelper.buildErrorResponse(ErrorCode.IOEXCEPTION.getErrorCode(),
+                    ErrorCode.IOEXCEPTION.getErrorMessage(), e.getMessage()));
             e.printStackTrace();
         } finally {
             lock.unlockWrite(stamp);

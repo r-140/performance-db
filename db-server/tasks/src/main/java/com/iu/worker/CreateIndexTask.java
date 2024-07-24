@@ -1,9 +1,9 @@
 package com.iu.worker;
 
 import com.iu.indexes.IndexTypes;
+import com.json.JsonHelper;
 
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.concurrent.locks.StampedLock;
 import java.util.logging.Level;
@@ -15,6 +15,8 @@ import static com.iu.worker.util.IndexHelper.checkIndexExistence;
 class CreateIndexTask extends AbstractTask {
 
     private static final Logger LOGGER = Logger.getLogger(CreateIndexTask.class.getName());
+
+    private static final String REPLACE_INDEX_TYPE_PATTERN = "{indexType}";
 
     private static final StampedLock lock = new StampedLock();
 
@@ -39,7 +41,8 @@ class CreateIndexTask extends AbstractTask {
                     addIndexToRegistry(PATH_TO_INDEX_REGISTRY, taskPayload);
                     responseBody = "Index with the type " + taskPayload + " has been created";
                 } else {
-                    responseBody = "Index with the type " + taskPayload + " already exist";
+                    String errorMessage = ErrorCode.INDEXEXIST.getErrorMessage().replace(REPLACE_INDEX_TYPE_PATTERN, taskPayload);
+                    responseBody = JsonHelper.buildErrorResponse(ErrorCode.INDEXEXIST.getErrorCode(), errorMessage, "");
                 }
                 writeResponse(connection, responseBody);
             } else {
@@ -49,6 +52,9 @@ class CreateIndexTask extends AbstractTask {
         } catch (IOException e) {
             //report exception somewhere.
             e.printStackTrace();
+            writeResponse(connection, JsonHelper.buildErrorResponse(ErrorCode.IOEXCEPTION.getErrorCode(),
+                    ErrorCode.IOEXCEPTION.getErrorMessage(), e.getMessage()));
+
         } finally {
             lock.unlockWrite(stamp);
             try {

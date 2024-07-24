@@ -5,7 +5,6 @@ import com.iu.indexes.IndexTypes;
 import com.json.JsonHelper;
 
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.concurrent.locks.StampedLock;
 import java.util.logging.Level;
@@ -50,7 +49,8 @@ class FindDocumentTask extends AbstractTask {
 
         } catch (IOException e) {
             //report exception somewhere.
-            writeResponse(connection, e.getMessage());
+            writeResponse(connection, JsonHelper.buildErrorResponse(ErrorCode.IOEXCEPTION.getErrorCode(),
+                    ErrorCode.IOEXCEPTION.getErrorMessage(), e.getMessage()));
             e.printStackTrace();
         } finally {
             lock.unlockWrite(stamp);

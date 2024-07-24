@@ -9,4 +9,10 @@ public class JsonHelper {
         return jsonObj.get(key);
     }
 
+    public static String buildErrorResponse(String errorCode, String errorMessage, String exceptionMessage) {
+        return new JSONObject()
+                .put("code", errorCode)
+                .put("message", errorMessage)
+                .put("exceptionMessage", errorMessage).toString();
+    }
 }

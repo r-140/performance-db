@@ -2,6 +2,7 @@ package com.iu.worker;
 
 import com.files.FileHelper;
 import com.iu.indexes.IndexTypes;
+import com.json.JsonHelper;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -41,7 +42,8 @@ class DeleteDBTask extends AbstractTask {
 
         } catch (IOException e) {
             //report exception somewhere.
-            writeResponse(connection, e.getMessage());
+            writeResponse(connection, JsonHelper.buildErrorResponse(ErrorCode.IOEXCEPTION.getErrorCode(),
+                    ErrorCode.IOEXCEPTION.getErrorMessage(), e.getMessage()));
             e.printStackTrace();
         } finally {
             lock.unlockWrite(stamp);
