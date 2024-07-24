@@ -39,7 +39,11 @@ public class DbUtil {
         }
     }
 
-    public static String removeDB() {
-        return execute("deleteDb", "deleteDb");
+    public static void removeDB() {
+        String result =  execute("deleteDb", "deleteDb");
+
+        System.out.println("RESULT of db deletion " + result);
+
+
     }
 }

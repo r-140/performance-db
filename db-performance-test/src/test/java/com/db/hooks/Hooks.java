@@ -8,13 +8,13 @@ import static com.db.DbUtil.removeDB;
 
 public class Hooks {
     @BeforeAll
-    public void setup(){
-        removeDB();
+    public static void setup(){
+//        removeDB();
         generateTestData(100);
     }
 
-    @AfterAll
-    public void tearDown(){
-        removeDB();
-    }
+//    @AfterAll
+//    public static void tearDown(){
+//        removeDB();
+//    }
 }
