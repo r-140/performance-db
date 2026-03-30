@@ -165,8 +165,10 @@ class LSMTreeIndexTest {
     void merge_createsFileInCorrectDirectory(@TempDir Path tmp) throws IOException {
         // Bug 18: merge() created sstableN.dat in CWD, not in the data directory
         LSMTreeIndex lsm = newLsm(tmp, tmp.resolve("lsm").toString());
-        lsm.put(1, 1L); lsm.flush();
-        lsm.put(2, 2L); lsm.flush();
+        lsm.put(1, 1L);
+        lsm.flush();
+        lsm.put(2, 2L);
+        lsm.flush();
         lsm.merge();
 
         // The merged file must exist somewhere under tmp, not the process CWD
@@ -188,7 +190,9 @@ class LSMTreeIndexTest {
     @Test
     void mixedPutRemove_multipleFlushes(@TempDir Path tmp) throws IOException {
         LSMTreeIndex lsm = newLsm(tmp, "mixed");
-        for (int i = 1; i <= 10; i++) { lsm.put(i, (long) i * 10); }
+        for (int i = 1; i <= 10; i++) {
+            lsm.put(i, (long) i * 10);
+        }
         lsm.flush();
 
         lsm.remove(3);
@@ -199,7 +203,7 @@ class LSMTreeIndexTest {
         assertNull(lsm.get(3));
         assertNull(lsm.get(7));
         assertEquals(999L, lsm.get(5));
-        assertEquals(20L,  lsm.get(2));
+        assertEquals(20L, lsm.get(2));
         assertEquals(100L, lsm.get(10));
     }
 
@@ -210,7 +214,6 @@ class LSMTreeIndexTest {
     private LSMTreeIndex newLsm(Path tmp, String prefix) {
         return new LSMTreeIndex(tmp.resolve(prefix).toString());
     }
-}
 
     // -----------------------------------------------------------------------
     // Bloom filter — SSTable pruning
@@ -221,7 +224,9 @@ class LSMTreeIndexTest {
         // Bloom filters must never produce false negatives:
         // if a key is present, mightContain() must return true.
         LSMTreeIndex lsm = newLsm(tmp, "bf_fn");
-        for (int i = 1; i <= 10; i++) { lsm.put(i, (long) i); }
+        for (int i = 1; i <= 10; i++) {
+            lsm.put(i, (long) i);
+        }
         lsm.flush();
 
         // Every inserted key must still be found after flush
@@ -248,7 +253,7 @@ class LSMTreeIndexTest {
         // We can't guarantee every absent key triggers a filter hit (1% FPR)
         // but the infrastructure is wired — at minimum the stats are tracked
         assertTrue(lsm.bloomFilterHits() + lsm.bloomFilterMisses() >= 0,
-            "Bloom filter stats must be tracked");
+                "Bloom filter stats must be tracked");
     }
 
     @Test
@@ -263,7 +268,7 @@ class LSMTreeIndexTest {
 
         // Key 42 must still be found — Bloom filter must not block it
         assertEquals(420L, lsm.get(42),
-            "Bloom filter must not block a key that is actually present");
+                "Bloom filter must not block a key that is actually present");
     }
 
     @Test
@@ -284,3 +289,4 @@ class LSMTreeIndexTest {
             assertEquals((long) i * 10, v);
         }
     }
+}

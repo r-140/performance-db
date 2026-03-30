@@ -1,15 +1,15 @@
 package com.files;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
 
-@RunWith(Suite.class)
+import org.junit.jupiter.api.Disabled;
 
-@Suite.SuiteClasses({
-        WriteToFileTest.class,
-        ReadFromFileTest.class,
-        DeleteLineFromFileTest.class
-})
+//@Suite
+//@SelectClasses({
+//        WriteToFileTest.class,
+//        ReadFromFileTest.class,
+//        DeleteLineFromFileTest.class
+//})
+@Disabled
 public class FileTestSuite {
 
 }
