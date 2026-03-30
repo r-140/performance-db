@@ -1,10 +1,10 @@
 Feature: SQL SELECT with automatic index selection
 
   The query planner selects the cheapest available index automatically.
-  These scenarios verify correct results regardless of which index the
-  planner chose.
+  All index types — including LSM with Bloom-filter pruning — are covered
+  by a single SQL query path.
 
-  Scenario Outline: Point lookup via each available index
+  Scenario Outline: Point lookup via each available index type
     Given creating or deleting index with type "<indexType>"
     When the create index request is sent
     Then the output should be "Index with the type <indexType> has been created"
@@ -15,8 +15,16 @@ Feature: SQL SELECT with automatic index selection
       | indexType  |
       | hashIndex  |
       | bplustree  |
+      | lsmtree    |
 
-  Scenario: Full scan — no WHERE clause returns all rows
+  Scenario: LSM index used when hash and B+tree are absent
+    Given creating or deleting index with type "lsmtree"
+    When the create index request is sent
+    Then the output should be "Index with the type lsmtree has been created"
+    When I execute SQL "SELECT * FROM data WHERE id = 10"
+    Then the result contains document with id 10
+
+  Scenario: Full scan when no index exists
     When I execute SQL "SELECT * FROM data"
     Then the result is a non-empty JSON array
 

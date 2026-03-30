@@ -1,83 +1,123 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
+  <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.iu.db.indexes</groupId>
-    <artifactId>performance-db</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <packaging>pom</packaging>
-    <modules>
-        <module>db-server</module>
-        <module>db-client</module>
-        <module>common</module>
-        <module>db-performance-test</module>
-    </modules>
+  <groupId>com.iu.db.indexes</groupId>
+  <artifactId>performance-db</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
 
-    <name>performance-db</name>
+  <modules>
+    <module>common</module>
+    <module>db-server</module>
+    <module>db-client</module>
+    <module>db-performance-test</module>
+    <module>olap-server</module>
+  </modules>
 
-    <properties>
-        <java.version>21</java.version>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <junit.jupiter.version>5.10.2</junit.jupiter.version>
-        <db-server.version>1.0-SNAPSHOT</db-server.version>
-    </properties>
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.source>21</maven.compiler.source>
+    <maven.compiler.target>21</maven.compiler.target>
+    <junit.jupiter.version>5.10.2</junit.jupiter.version>
+    <db.version>1.0-SNAPSHOT</db.version>
+  </properties>
 
-    <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.12.1</version>
-                    <configuration>
-                        <source>21</source>
-                        <target>21</target>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.2.5</version>
-                </plugin>
-            </plugins>
-        </pluginManagement>
-    </build>
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.12.1</version>
+          <configuration>
+            <source>21</source>
+            <target>21</target>
+            <!-- Structured concurrency + scoped values are still preview in 21 -->
+            <compilerArgs>
+              <arg>--enable-preview</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>3.2.5</version>
+          <configuration>
+            <argLine>--enable-preview</argLine>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>com.iu.db.indexes</groupId>
-                <artifactId>common</artifactId>
-                <version>1.0-SNAPSHOT</version>
-            </dependency>
+  <dependencyManagement>
+    <dependencies>
 
-            <dependency>
-                <groupId>org.json</groupId>
-                <artifactId>json</artifactId>
-                <version>20240303</version>
-            </dependency>
+      <!-- ── Internal modules ── -->
+      <dependency>
+        <groupId>com.iu.db.indexes</groupId>
+        <artifactId>common</artifactId>
+        <version>${db.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.iu.db.indexes</groupId>
+        <artifactId>db-server-common</artifactId>
+        <version>${db.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.iu.db.indexes</groupId>
+        <artifactId>indexes</artifactId>
+        <version>${db.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.iu.db.indexes</groupId>
+        <artifactId>db-tasks</artifactId>
+        <version>${db.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.iu.db.indexes</groupId>
+        <artifactId>db-server-service</artifactId>
+        <version>${db.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.iu.db.indexes</groupId>
+        <artifactId>db-server-instance</artifactId>
+        <version>${db.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>com.iu.db.indexes</groupId>
+        <artifactId>db-client</artifactId>
+        <version>${db.version}</version>
+      </dependency>
 
-            <!-- JUnit 5 BOM — controls all junit-jupiter versions -->
-            <dependency>
-                <groupId>org.junit.jupiter</groupId>
-                <artifactId>junit-jupiter</artifactId>
-                <version>${junit.jupiter.version}</version>
-                <scope>test</scope>
-            </dependency>
+      <!-- ── Third-party ── -->
+      <dependency>
+        <groupId>org.json</groupId>
+        <artifactId>json</artifactId>
+        <version>20240303</version>
+      </dependency>
+      <dependency>
+        <groupId>commons-io</groupId>
+        <artifactId>commons-io</artifactId>
+        <version>2.15.1</version>
+      </dependency>
 
-            <!-- Keep legacy JUnit 4 for existing Cucumber runner -->
-            <dependency>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
-                <version>4.13.2</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>commons-io</groupId>
-                <artifactId>commons-io</artifactId>
-                <version>2.15.1</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
+      <!-- ── Test ── -->
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>${junit.jupiter.version}</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.13.2</version>
+        <scope>test</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
 </project>

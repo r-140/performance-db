@@ -1,27 +1,59 @@
 package com.iu.worker;
 
-import com.files.FileHelper;
-import com.iu.indexes.IndexTypes;
+import com.iu.sql.*;
 import com.json.JsonHelper;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.util.List;
 import java.util.concurrent.locks.StampedLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Handles "find" requests.
+ * Handles the legacy "find" wire protocol.
  *
- * Uses a READ stamp so multiple concurrent finds can proceed in parallel.
- * The original code used writeLock() for reads, which serialised all queries.
+ * WHY THIS STILL EXISTS
+ * ─────────────────────
+ * The "find" task pre-dates the SQL engine. It accepted a JSON payload:
+ *   {"id": 42, "indexType": "lsmtree"}
+ * and hard-coded the index dispatch in its own loop.
+ *
+ * Problems with the old approach:
+ *  - Every new index type had to be added here manually.
+ *  - LSM index was wired in IndexTypes but QueryPlanner never considered it,
+ *    so SQL queries never used LSM even when it was the only index available.
+ *  - Bloom filter optimisation in LSMTreeIndex.get() was bypassed when the
+ *    caller went directly through IndexTypes.findAddrInIndex().
+ *
+ * NEW APPROACH — delegate to the SQL engine
+ * ─────────────────────────────────────────
+ * FindDocumentTask now translates the legacy payload into a SQL SELECT and
+ * passes it through SqlQueryTask. This means:
+ *  - The QueryPlanner automatically selects the best available index,
+ *    including LSM with Bloom-filter-guarded SSTable reads.
+ *  - All future plan types (range scans, multi-predicate etc.) are
+ *    immediately available via "find" without changing this class.
+ *  - A single code path handles both protocols — no duplication.
+ *
+ * The "indexType" field in the payload is now ADVISORY: if that index
+ * exists, the planner will prefer it naturally (it's in the registry).
+ * If not, the planner picks the next best alternative automatically.
+ *
+ * Backward compatibility: the response format is unchanged — the first
+ * matching document line is returned as a plain string (not wrapped in JSON
+ * array), matching what FindDataHelper and Cucumber tests expect.
  */
 class FindDocumentTask extends AbstractTask {
 
     private static final Logger LOGGER = Logger.getLogger(FindDocumentTask.class.getName());
 
-    /** Shared with write tasks — same lock instance via static field. */
+    /** Shared read lock — allows concurrent reads alongside other read tasks. */
     static final StampedLock lock = new StampedLock();
+
+    private final SqlParser     parser   = new SqlParser();
+    private final QueryPlanner  planner  = new QueryPlanner();
+    private final QueryExecutor executor = new QueryExecutor();
 
     FindDocumentTask(Socket connection, String taskPayload) {
         super(connection, taskPayload);
@@ -29,30 +61,33 @@ class FindDocumentTask extends AbstractTask {
 
     @Override
     public Void call() {
-        // READ lock — allows concurrent reads
         long stamp = lock.readLock();
         try {
-            LOGGER.log(Level.INFO, "Find document task: " + taskPayload);
-            final Integer idVal    = (Integer) JsonHelper.getValueFromJsonByKey(taskPayload, "id");
-            final String indexType = (String)  JsonHelper.getValueFromJsonByKey(taskPayload, "indexType");
+            LOGGER.log(Level.INFO, "FindDocumentTask: " + taskPayload);
 
-            LOGGER.log(Level.FINE, "Find id=" + idVal + " indexType=" + indexType);
-
-            IndexTypes indexTypes = IndexTypes.getIndexByType(indexType);
-            String result;
-
-            if (indexTypes == null || indexTypes.equals(IndexTypes.NONE)) {
-                // Full file scan — O(N)
-                result = FileHelper.findLineInFileByIdField(PATH_TO_DATA_FILE, idVal);
-            } else {
-                Long offset = (Long) indexTypes.findAddrInIndex(idVal);
-                LOGGER.log(Level.INFO, "Index offset=" + offset);
-                result = offset != null
-                        ? FileHelper.findLineByOffset(PATH_TO_DATA_FILE, offset)
-                        : FileHelper.findLineInFileByIdField(PATH_TO_DATA_FILE, idVal);
+            // Extract id from legacy payload {"id":42, "indexType":"lsmtree"}
+            int id;
+            try {
+                Object raw = com.json.JsonHelper.getValueFromJsonByKey(taskPayload, "id");
+                id = (Integer) raw;
+            } catch (Exception e) {
+                writeResponse(connection, null);
+                return null;
             }
 
-            LOGGER.log(Level.INFO, "Find result: " + result);
+            // Translate to SQL and run through the full planner → executor pipeline
+            String sql = "SELECT * FROM data WHERE id = " + id + " LIMIT 1";
+            LOGGER.log(Level.FINE, "Delegating to SQL: " + sql);
+
+            SqlNode.SelectStatement stmt = parser.parse(sql);
+            QueryPlan plan = planner.plan(stmt);
+            LOGGER.log(Level.INFO, "FindDocumentTask plan chosen: " + plan.getClass().getSimpleName());
+
+            List<String> rows = executor.execute(plan, 1);
+
+            // Return the raw "id,{json}" line or null — same as the old protocol
+            String result = rows.isEmpty() ? null : rows.get(0);
+            LOGGER.log(Level.INFO, "FindDocumentTask result: " + result);
             writeResponse(connection, result);
 
         } catch (IOException e) {

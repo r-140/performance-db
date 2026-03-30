@@ -2,50 +2,43 @@ package com.iu.sql;
 
 import com.files.FileHelper;
 import com.iu.indexes.IndexTypes;
+import com.iu.indexes.IndexKeeper;
 import com.iu.indexes.bitmap.BitmapIndex;
 import com.iu.indexes.gin.GINIndex;
-import com.iu.indexes.IndexKeeper;
+import com.iu.indexes.lsmtree.LSMTreeIndex;
 import com.util.CommonConsts;
 
 import java.io.IOException;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 import static com.iu.worker.AbstractTask.*;
 
 /**
- * SQL query executor.
+ * SQL query executor — executes a QueryPlan and returns matching document lines.
  *
- * Takes a QueryPlan and returns a list of JSON document strings.
+ * Pattern-matching switch over the sealed QueryPlan hierarchy (Java 21).
+ * Adding a new plan type without updating this switch is a compile error.
  *
- * Uses pattern-matching switch (JEP 441, Java 21) over the sealed QueryPlan
- * hierarchy — exhaustive, no default needed, compile error if a new plan
- * type isn't handled here.
- *
- * Also uses Stream.toList() (Java 16), var (Java 10), and text blocks (Java 15).
+ * LSMTreeScan is now handled: the executor calls LSMTreeIndex.get(id) which
+ * internally checks the MemTable then scans SSTables with Bloom-filter pruning.
  */
 public class QueryExecutor {
     private static final Logger LOGGER = Logger.getLogger(QueryExecutor.class.getName());
 
-    private final String dataFile;
-
-    public QueryExecutor() {
-        this.dataFile = PATH_TO_DATA_FILE;
-    }
+    private final String dataFile = PATH_TO_DATA_FILE;
 
     /**
-     * Execute the plan and return matching document lines.
-     * Each returned string is the raw line from the data file: "id,{json}".
+     * Execute the plan and return raw data-file lines: "id,{json}".
+     * @param limit  max rows to return; -1 = unlimited
      */
     public List<String> execute(QueryPlan plan, int limit) throws IOException {
-        // Pattern-matching switch over sealed QueryPlan (Java 21)
         List<String> rows = switch (plan) {
 
             case QueryPlan.HashIndexScan s -> {
-                Long offset = IndexTypes.HASH_INDEX.findAddrInIndex(s.id()) instanceof Long l ? l : null;
-                yield offsetToRows(offset);
+                Object raw = IndexTypes.HASH_INDEX.findAddrInIndex(s.id());
+                yield offsetToRows(raw instanceof Long l ? l : null);
             }
 
             case QueryPlan.BPlusTreeScan s -> {
@@ -53,34 +46,44 @@ public class QueryExecutor {
                 yield offsetToRows(offset);
             }
 
+            case QueryPlan.LSMTreeScan s -> {
+                // LSMTreeIndex.get() checks MemTable first, then SSTables with
+                // per-SSTable Bloom filter — no file is opened unless the filter
+                // says the key might be present.
+                String lsmFile = DISC_PATH + "/" + IndexTypes.LSMTREE.getIndexFileName();
+                LSMTreeIndex lsm = IndexKeeper.INSTANCE.getLsmTreeIndexes().get(lsmFile);
+                if (lsm == null) { yield List.of(); }
+                Long offset = lsm.get(s.id());
+                LOGGER.log(Level.FINE, "LSMTreeScan id=" + s.id() + " offset=" + offset
+                    + " bloom_hits=" + lsm.bloomFilterHits()
+                    + " bloom_misses=" + lsm.bloomFilterMisses());
+                yield offsetToRows(offset);
+            }
+
             case QueryPlan.GINScan s -> {
                 String ginFile = DISC_PATH + "/" + IndexTypes.GIN.getIndexFileName();
-                GINIndex idx = IndexKeeper.INSTANCE.getGINIndexes().get(ginFile);
-                if (idx == null) { yield List.of(); }
-                List<Long> offsets = idx.search(s.token());
-                yield offsetsToRows(offsets);
+                GINIndex gin = IndexKeeper.INSTANCE.getGINIndexes().get(ginFile);
+                if (gin == null) { yield List.of(); }
+                yield offsetsToRows(gin.search(s.token()));
             }
 
             case QueryPlan.BitmapScan s -> {
                 String bmpFile = DISC_PATH + "/" + IndexTypes.BITMAP.getIndexFileName();
-                BitmapIndex idx = IndexKeeper.INSTANCE.getBitmapIndexes().get(bmpFile);
-                if (idx == null) { yield List.of(); }
-                List<Integer> ids = idx.search(s.value());
-                yield idsToRows(ids);
+                BitmapIndex bmp = IndexKeeper.INSTANCE.getBitmapIndexes().get(bmpFile);
+                if (bmp == null) { yield List.of(); }
+                yield idsToRows(bmp.search(s.value()));
             }
 
             case QueryPlan.FullScan s -> {
-                // Load all offsets from the data file and optionally filter
                 var allOffsets = FileHelper.readFile(dataFile, false);
-                var allRows = new ArrayList<String>();
+                var result     = new ArrayList<String>();
                 for (long offset : allOffsets.values()) {
                     String line = FileHelper.findLineByOffset(dataFile, offset);
                     if (line == null) continue;
-                    if (s.field() == null || matchesField(line, s.field(), s.value())) {
-                        allRows.add(line);
-                    }
+                    if (s.field() == null || matchesField(line, s.field(), s.value()))
+                        result.add(line);
                 }
-                yield allRows;
+                yield result;
             }
         };
 
@@ -108,27 +111,21 @@ public class QueryExecutor {
 
     private List<String> idsToRows(List<Integer> ids) throws IOException {
         var allOffsets = FileHelper.readFile(dataFile, false);
-        var rows = new ArrayList<String>();
+        var rows       = new ArrayList<String>();
         for (int id : ids) {
-            Long offset = allOffsets.get(id);
-            if (offset != null) {
-                String line = FileHelper.findLineByOffset(dataFile, offset);
+            Long off = allOffsets.get(id);
+            if (off != null) {
+                String line = FileHelper.findLineByOffset(dataFile, off);
                 if (line != null) rows.add(line);
             }
         }
         return rows;
     }
 
-    /** Checks if a data-file line (id,json) contains field=value. */
     private boolean matchesField(String line, String field, String value) {
-        // Line format: "42,{\"data\":\"testdata42\",\"id\":42}"
         int comma = line.indexOf(CommonConsts.ID_SEPARATOR);
         if (comma < 0) return false;
-
-        if ("id".equals(field)) {
-            return line.substring(0, comma).equals(value);
-        }
-        // Simple substring check for other fields
+        if ("id".equals(field)) return line.substring(0, comma).equals(value);
         String json = line.substring(comma + 1);
         return json.contains("\"" + field + "\":\"" + value + "\"")
             || json.contains("\"" + field + "\":" + value);

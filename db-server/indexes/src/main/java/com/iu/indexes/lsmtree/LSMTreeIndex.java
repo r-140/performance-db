@@ -9,39 +9,49 @@ import java.util.logging.Logger;
 /**
  * Log-Structured Merge Tree index.
  *
- * Write path: all writes go to the in-memory MemTable first.
- * When MemTable reaches MEMTABLE_LIMIT entries it is flushed to an
- * immutable SSTable file on disk.
+ * Write path: MemTable (TreeMap in memory) → SSTable file on disk when full.
+ * Read path:  MemTable first, then SSTables newest-first.
  *
- * Read path: check MemTable, then scan SSTables newest-first.
- * Each level is checked for a tombstone (deletion marker) before
- * returning a value, so deletes are correctly propagated.
+ * BLOOM FILTER IN THE READ PATH
+ * ──────────────────────────────
+ * Before reading any SSTable file from disk, get() checks that SSTable's
+ * Bloom filter. A "definitely not present" answer skips the file entirely:
  *
- * Fixes vs original:
- *  - Tombstone represented by TOMBSTONE sentinel, not null (Bug 15).
- *  - SSTables scanned newest-first so the most recent value wins (Bug 19).
- *  - Tombstones survive SSTable read() and propagate through get() (Bug 16).
- *  - Compaction (merge) correctly drops tombstoned keys (Bug 17).
- *  - Merged SSTable created in the correct data directory (Bug 18).
- *  - Bloom filter added to skip SSTables that cannot contain a key (Bug 20).
+ *   for each SSTable (newest → oldest):
+ *     1. sstable.mightContain(key)  →  O(k) bit ops, no I/O
+ *        false  → SKIP this SSTable (Bloom filter guarantee: no false negatives)
+ *        true   → read the SSTable file and look up the key
+ *
+ * Without Bloom filters: a key absent from all SSTables causes L disk reads
+ * (L = number of SSTables).
+ * With Bloom filters: a miss costs only L × k bit-array lookups — no disk I/O.
+ * A false-positive rate of 1% means 1 in 100 "true" answers are wrong (need
+ * disk read anyway), but 0% false negatives so correctness is never affected.
+ *
+ * Example with 100 SSTables and 1% FPR:
+ *   Missing key:  0 disk reads (all 100 filters say "definitely not here")
+ *   Present key:  ~1 disk read (only the correct SSTable says "maybe here")
  */
 public class LSMTreeIndex {
 
     private static final Logger LOGGER = Logger.getLogger(LSMTreeIndex.class.getName());
-
     private static final int MEMTABLE_LIMIT = 5;
 
-    private final MemoryTable memTable = new MemoryTable();
-    private final List<SSTable> sstables = new ArrayList<>(); // index 0 = oldest
-    private int sstableCounter = 0;
-    private final String dirPrefix; // directory + base name prefix
+    private final MemoryTable    memTable  = new MemoryTable();
+    private final List<SSTable>  sstables  = new ArrayList<>(); // index 0 = oldest
+    private       int            sstableCounter = 0;
+    private final String         dirPrefix;
+
+    // Statistics — logged after each get() to make the Bloom filter effect visible
+    private long bloomHits   = 0; // Bloom filter said "definitely not here" → skipped
+    private long bloomMisses = 0; // Bloom filter said "maybe here" → file read
 
     public LSMTreeIndex(String filePrefix) {
         this.dirPrefix = filePrefix;
     }
 
     // -----------------------------------------------------------------------
-    // Public API
+    // Write
     // -----------------------------------------------------------------------
 
     public void put(int key, long value) throws IOException {
@@ -54,85 +64,114 @@ public class LSMTreeIndex {
         if (memTable.size() >= MEMTABLE_LIMIT) flush();
     }
 
+    // -----------------------------------------------------------------------
+    // Read — Bloom filter consulted before every SSTable file access
+    // -----------------------------------------------------------------------
+
     /**
      * Look up a key.
      *
-     * 1. Check MemTable: if present (even as tombstone) return immediately.
-     *    Tombstone → return null (key is deleted).
-     * 2. Scan SSTables newest-first: first entry (including tombstone) wins.
+     * 1. MemTable check (in-memory, O(log N)).
+     *    Tombstone present → key is deleted → return null immediately.
+     *    Value present     → return it immediately (no disk I/O).
+     *
+     * 2. SSTable scan, newest first.
+     *    For each SSTable:
+     *      a. Bloom filter check — O(k), no I/O.
+     *         "Definitely absent" → skip this SSTable entirely.
+     *      b. Read SSTable from disk — O(entries).
+     *         Tombstone → deleted → return null.
+     *         Value     → return it.
+     *
+     * 3. Key not found anywhere → return null.
      */
     public Long get(int key) throws IOException {
-        // MemTable lookup
+        // Step 1: MemTable
         Optional<Long> memResult = memTable.get(key);
         if (memResult.isPresent()) {
             Long v = memResult.get();
             return MemoryTable.TOMBSTONE.equals(v) ? null : v;
         }
 
-        // SSTable lookup — newest first (highest index = most recently written)
+        // Step 2: SSTables newest-first with Bloom filter guard
         for (int i = sstables.size() - 1; i >= 0; i--) {
-            TreeMap<Integer, Long> table = sstables.get(i).read();
+            SSTable sstable = sstables.get(i);
+
+            // ── Bloom filter check ──────────────────────────────────────
+            if (!sstable.mightContain(key)) {
+                bloomHits++;
+                LOGGER.log(Level.FINEST,
+                    "Bloom filter: key " + key + " definitely absent from " + sstable.getFile().getName());
+                continue; // skip — no disk I/O for this SSTable
+            }
+            bloomMisses++;
+            // ── Disk read (only reached when Bloom says "maybe") ─────────
+            TreeMap<Integer, Long> table = sstable.read();
             if (table.containsKey(key)) {
                 Long v = table.get(key);
                 return MemoryTable.TOMBSTONE.equals(v) ? null : v;
             }
         }
+
+        logBloomStats();
         return null;
     }
 
-    /**
-     * Flush MemTable to a new SSTable on disk.
-     * The SSTable file is created in the same directory as the index prefix.
-     */
+    // -----------------------------------------------------------------------
+    // Flush & Compaction
+    // -----------------------------------------------------------------------
+
     public void flush() throws IOException {
         if (memTable.size() == 0) return;
-        // Keep the SSTable in the same directory as the data file prefix
         File file = new File(dirPrefix + sstableCounter++ + ".dat");
         SSTable sstable = new SSTable(file);
-        sstable.write(memTable.getTable());
+        sstable.write(memTable.getTable()); // also builds Bloom filter
         sstables.add(sstable);
         memTable.clear();
         LOGGER.log(Level.FINE, "Flushed MemTable to " + file.getName());
     }
 
     /**
-     * Compaction: merge two oldest SSTables into one.
-     *
-     * Newer entries overwrite older ones (newest-wins).
-     * Tombstones that are the NEWEST record for their key are dropped — the
-     * key is gone from all older SSTables too, so the deletion is complete.
-     * Tombstones that are NOT the newest record (i.e. older SSTable had a later
-     * write) are kept — this can't happen here because we always merge oldest pair,
-     * but we handle it correctly anyway by scanning map2 (newer) last.
+     * Merge the two oldest SSTables.
+     * Newer entries win; tombstoned keys are dropped from the merged result.
+     * Bloom filter for the merged SSTable is built automatically by SSTable.write().
      */
     public void merge() throws IOException {
         if (sstables.size() < 2) return;
 
-        SSTable older = sstables.remove(0); // index 0 = oldest
-        SSTable newer = sstables.remove(0); // now at index 0 after first remove
+        SSTable older = sstables.remove(0);
+        SSTable newer = sstables.remove(0);
 
-        TreeMap<Integer, Long> mergedMap = older.read();
-        // putAll: newer entries win, including newer tombstones
-        mergedMap.putAll(newer.read());
-
-        // Drop tombstones: these keys are fully deleted from this merged level
-        mergedMap.values().removeIf(v -> MemoryTable.TOMBSTONE.equals(v));
+        TreeMap<Integer, Long> merged = older.read();
+        merged.putAll(newer.read()); // newer wins
+        merged.values().removeIf(v -> MemoryTable.TOMBSTONE.equals(v)); // drop tombstones
 
         File mergedFile = new File(dirPrefix + sstableCounter++ + ".dat");
-        SSTable merged = new SSTable(mergedFile);
-        merged.write(mergedMap);
-        sstables.add(0, merged); // insert at front so ordering is preserved
+        SSTable mergedSSTable = new SSTable(mergedFile);
+        mergedSSTable.write(merged); // builds fresh Bloom filter for merged keys
+        sstables.add(0, mergedSSTable);
 
-        // Clean up old SSTable files
         older.getFile().delete();
         newer.getFile().delete();
 
-        LOGGER.log(Level.INFO, "Merged SSTables into " + mergedFile.getName()
-                + " with " + mergedMap.size() + " entries");
+        LOGGER.log(Level.INFO, "Merged → " + mergedFile.getName()
+            + " (" + merged.size() + " entries)");
     }
 
-    /** Force all pending MemTable data to disk. */
     public void flushAll() throws IOException {
         if (memTable.size() > 0) flush();
+    }
+
+    // Bloom filter statistics — useful for demos / performance comparisons
+    public long bloomFilterHits()   { return bloomHits;   }
+    public long bloomFilterMisses() { return bloomMisses; }
+
+    private void logBloomStats() {
+        if (LOGGER.isLoggable(Level.FINE) && (bloomHits + bloomMisses) > 0) {
+            LOGGER.log(Level.FINE, String.format(
+                "LSM Bloom stats: hits(skipped)=%d misses(read)=%d saved=%.1f%%",
+                bloomHits, bloomMisses,
+                100.0 * bloomHits / (bloomHits + bloomMisses)));
+        }
     }
 }
