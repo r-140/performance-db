@@ -6,6 +6,7 @@ import io.cucumber.java.en.When;
 
 import static com.db.DbUtil.execute;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CreateDeleteIndexSteps {
 
@@ -19,12 +20,12 @@ public class CreateDeleteIndexSteps {
 
     @When("the create index request is sent")
     public void createIndexRequestSent() {
-        this.output = createOrDeleteIndex(input, "createIndex");
+        this.output = execute("createIndex", input);
     }
 
     @When("the delete index request is sent")
     public void deleteIndexRequestSent() {
-        this.output = createOrDeleteIndex(input, "deleteIndex");
+        this.output = execute("deleteIndex", input);
     }
 
     @Then("the output should be {string}")
@@ -32,7 +33,9 @@ public class CreateDeleteIndexSteps {
         assertEquals(expectedOutput, output);
     }
 
-    private String createOrDeleteIndex(String indexType, String taskType) {
-        return execute(taskType, indexType);
+    @Then("the output should contain {string}")
+    public void theOutputShouldContain(String expectedOutput) {
+        assertTrue(output != null && output.contains(expectedOutput),
+                "Expected output to contain '" + expectedOutput + "' but got: " + output);
     }
 }

@@ -17,237 +17,143 @@ public class FileHelper {
 
     public static void removeLineFromFile(String filePath, String lineToRemove) throws IOException {
         File inputFile = new File(filePath);
-        File tempFile = new File(inputFile.getAbsolutePath() + ".tmp");
+        File tempFile  = new File(inputFile.getAbsolutePath() + ".tmp");
 
         try (BufferedReader reader = new BufferedReader(new FileReader(inputFile));
              BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile))) {
-
-            String currentLine;
-            while ((currentLine = reader.readLine()) != null) {
-                // Trim newline when comparing with lineToRemove
-                String trimmedLine = currentLine.trim();
-                if (trimmedLine.equals(lineToRemove)) {
-                    continue;
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.trim().equals(lineToRemove)) {
+                    writer.write(line + System.lineSeparator());
                 }
-                writer.write(currentLine + System.lineSeparator());
             }
         }
 
-        // Delete the original file
         if (!inputFile.delete()) {
-            LOGGER.info("Could not delete file");
+            LOGGER.warning("Could not delete original file: " + filePath);
             return;
         }
-
-        // Rename the new file to the filename the original file had
         if (!tempFile.renameTo(inputFile)) {
-            System.out.println("Could not rename file");
+            LOGGER.warning("Could not rename temp file to: " + filePath);
         }
     }
 
-
-    public static long writeToFile(final String pathToFile, final String data, boolean isAppend) throws IOException {
-        return usingFileOutputStream(pathToFile, data, isAppend);
+    public static long writeToFile(final String pathToFile, final String data, boolean isAppend)
+            throws IOException {
+        String sanitised = data.replaceAll(System.lineSeparator(), "") + System.lineSeparator();
+        // try-with-resources — original leaked the FileOutputStream
+        try (FileOutputStream fos = new FileOutputStream(pathToFile, isAppend)) {
+            long offset = fos.getChannel().position();
+            fos.write(sanitised.getBytes());
+            return offset;
+        }
     }
 
     public static Map<Integer, Long> readFile(String file, boolean isRecover) throws IOException {
-        LOGGER.log(Level.FINEST, String.format("readFile(): file %s, isRecover ? %s", file, isRecover));
-        RandomAccessFile aFile = new RandomAccessFile(file, "rw");
-        final Map<Integer, Long> docMap = isRecover ? readHashSnapshotFileRecursively(new HashMap<>(), aFile, 0) : readFileRecursively(new ConcurrentHashMap<>(), aFile, 0);
-        aFile.close();
-        LOGGER.log(Level.FINE, String.format("readFile(): Map after reading %s", docMap));
+        LOGGER.log(Level.FINEST, "readFile: " + file + " recover=" + isRecover);
+        // Use "r" — no need for write access when reading
+        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+            Map<Integer, Long> docMap = isRecover
+                    ? new HashMap<>()
+                    : new ConcurrentHashMap<>();
+            long pos = 0;
+            while (true) {
+                raf.seek(pos);
+                String line = raf.readLine();
+                if (line == null || line.isEmpty()) break;
 
-        return docMap;
+                String[] tok = isRecover
+                        ? line.split(CommonConsts.HASH_SNAPSHOT_SEPARATOR, 2)
+                        : line.split(CommonConsts.ID_SEPARATOR, 2);
+
+                if (tok.length == 2) {
+                    docMap.put(Integer.valueOf(tok[0]), isRecover ? Long.valueOf(tok[1]) : pos);
+                }
+                pos += line.length() + System.lineSeparator().length();
+            }
+            return docMap;
+        }
     }
 
     public static String findLineInFileByIdField(String file, Object field) throws IOException {
-        try (RandomAccessFile aFile = new RandomAccessFile(file, "rw")) {
-            final String found = findLineByIdRec(aFile, field, 0);
-            LOGGER.info(String.format("findLineInFileByField(): found %s", found));
-            return found;
+        // Iterative — original was recursive and would StackOverflow on large files
+        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+            long pos = 0;
+            while (true) {
+                raf.seek(pos);
+                String line = raf.readLine();
+                if (line == null || line.isEmpty()) return null;
+                String[] tok = line.split(CommonConsts.ID_SEPARATOR, 2);
+                if (tok[0].equals(String.valueOf(field))) {
+                    LOGGER.fine("findLineInFileByIdField found: " + line);
+                    return line;
+                }
+                pos += line.length() + System.lineSeparator().length();
+            }
         }
     }
 
     public static String findLineByOffset(String file, long pos) throws IOException {
-        try (RandomAccessFile aFile = new RandomAccessFile(file, "rw")) {
-            aFile.seek(pos);
-            String line = aFile.readLine();
-            LOGGER.fine(String.format("found line %s", line));
-            return line;
+        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+            raf.seek(pos);
+            return raf.readLine();
         }
     }
 
     public static boolean createDirectoryIfNotExist(String dirPath) {
-        File directory = new File(dirPath);
-        if (!directory.exists()) {
-            LOGGER.info(String.format("Directory %s has been created", dirPath));
-            return directory.mkdirs();
+        File dir = new File(dirPath);
+        if (!dir.exists()) {
+            LOGGER.info("Creating directory: " + dirPath);
+            return dir.mkdirs();
         }
-
-        LOGGER.info(String.format("Directory %s already exist", dirPath));
-
         return false;
     }
 
     public static boolean isFileExist(String file) {
-        final Path path = Paths.get(file);
-        return Files.exists(path);
+        return Files.exists(Paths.get(file));
     }
 
     public static boolean isLineInFileExist(String file, String line) throws IOException {
-        try (RandomAccessFile aFile = new RandomAccessFile(file, "rw")) {
-            return isLineExist(aFile, line, 0);
-        }
-    }
-
-    public static boolean findLineInFile(String filePath, String lineToFind) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
-            String currentLine;
-            while ((currentLine = reader.readLine()) != null) {
-                if (currentLine.trim().equals(lineToFind)) {
-                    return true;
-                }
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String current;
+            while ((current = br.readLine()) != null) {
+                if (current.trim().equals(line)) return true;
             }
         }
         return false;
     }
 
-    //    used to be synchronized, now ReadWriteLock is being used
-    public static void writeHashIndexToDisc(Map<Integer, Long> hashIndex, String snapshotFile) throws IOException {
-        final Path path = Paths.get(snapshotFile);
-//        deleting existing file
-        boolean result = Files.deleteIfExists(path);
-        if (!result)
-            LOGGER.log(Level.INFO, "existing file wasn't remove, because it does not exist");
+    public static boolean findLineInFile(String filePath, String lineToFind) throws IOException {
+        return isLineInFileExist(filePath, lineToFind);
+    }
 
-//        writing snapshot to new file
-        try (Writer writer = Files.newBufferedWriter(path)) {
-            hashIndex.forEach((key, value) -> {
-                try {
-                    writer.write(key + CommonConsts.HASH_SNAPSHOT_SEPARATOR + value + System.lineSeparator());
-                } catch (IOException ex) {
-                    throw new UncheckedIOException(ex);
-                }
-            });
-        } catch (UncheckedIOException ex) {
-            throw ex.getCause();
-        } catch (IOException e) {
-            e.printStackTrace();
+    public static void writeHashIndexToDisc(Map<Integer, Long> hashIndex, String snapshotFile)
+            throws IOException {
+        Path path = Paths.get(snapshotFile);
+        Files.deleteIfExists(path);
+        try (Writer w = Files.newBufferedWriter(path)) {
+            for (Map.Entry<Integer, Long> e : hashIndex.entrySet()) {
+                w.write(e.getKey() + CommonConsts.HASH_SNAPSHOT_SEPARATOR
+                        + e.getValue() + System.lineSeparator());
+            }
         }
     }
 
     public static void deleteFilesWithPattern(String directoryPath, String pattern) throws IOException {
         Path dirPath = Paths.get(directoryPath);
-        Pattern regexPattern = Pattern.compile(pattern);
-
-        // Check if the directory exists
-        if (!Files.exists(dirPath) || !Files.isDirectory(dirPath)) {
-            throw new IOException("The specified path is not a directory or does not exist.");
-        }
-
-        Files.walkFileTree(dirPath, new SimpleFileVisitor<Path>() {
+        if (!Files.exists(dirPath) || !Files.isDirectory(dirPath))
+            throw new IOException("Not a directory: " + directoryPath);
+        Pattern regex = Pattern.compile(pattern);
+        Files.walkFileTree(dirPath, new SimpleFileVisitor<>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                // Check if the file name matches the pattern
-                if (regexPattern.matcher(file.getFileName().toString()).find()) {
-                    Files.delete(file);
-                }
+                if (regex.matcher(file.getFileName().toString()).find()) Files.delete(file);
                 return FileVisitResult.CONTINUE;
             }
         });
     }
 
     public static void removeFile(String file) throws IOException {
-        Path path = Paths.get(file);
-        Files.delete(path);
+        Files.delete(Paths.get(file));
     }
-
-    private static Map<Integer, Long> readHashSnapshotFileRecursively(Map<Integer, Long> docMap, RandomAccessFile aFile, long pos) throws IOException {
-        aFile.seek(pos);
-        final String line = aFile.readLine();
-        if (line == null || line.isEmpty())
-            return docMap;
-
-        String[] tok = line.split(CommonConsts.HASH_SNAPSHOT_SEPARATOR, 2);
-//
-        docMap.put(Integer.valueOf(tok[0]), Long.valueOf(tok[1]));
-        pos = pos + line.length() + System.lineSeparator().length();
-
-        return readHashSnapshotFileRecursively(docMap, aFile, pos);
-    }
-
-    //    used to be synchronized, now ReadWriteLock is being used
-    private static long usingFileOutputStream(String pathToFile, String data, boolean isAppend) throws IOException {
-        data = writeNewLineBreakers(data);
-
-        final FileOutputStream outputStream = new FileOutputStream(pathToFile, isAppend);
-        final long offset = outputStream.getChannel().size();
-
-        byte[] strToBytes = data.getBytes();
-        outputStream.write(strToBytes);
-
-        outputStream.close();
-
-        return offset;
-    }
-
-    //    method has to be synchronized otherwise it will be deadlock
-    private static String writeNewLineBreakers(String data) {
-        //remove all line breakers
-        data = data.replaceAll(System.lineSeparator(), "");
-        //        write new line breaker at the end of line
-
-//        builder.append("\n");
-        return data + System.lineSeparator();
-    }
-
-
-    private static Map<Integer, Long> readFileRecursively(Map<Integer, Long> docMap, RandomAccessFile aFile, long pos) throws IOException {
-        aFile.seek(pos);
-        String line = aFile.readLine();
-        if (line == null || line.isEmpty())
-            return docMap;
-
-        final String[] tok = line.split(CommonConsts.ID_SEPARATOR, 2);
-
-        LOGGER.log(Level.FINEST, String.format("id form file %s, corresponding json %s", tok[0], tok[1]));
-
-        docMap.put(Integer.valueOf(tok[0]), pos);
-        pos = pos + line.length() + System.lineSeparator().length();
-
-//        pos = pos + line.length();
-
-        return readFileRecursively(docMap, aFile, pos);
-    }
-
-    private static String findLineByIdRec(RandomAccessFile aFile, Object field, long pos) throws IOException {
-        aFile.seek(pos);
-        String line = aFile.readLine();
-        if (line == null || line.isEmpty())
-            return line;
-
-        final String[] tok = line.split(CommonConsts.ID_SEPARATOR, 2);
-
-        LOGGER.log(Level.FINEST, String.format("id form file %s, corresponding json %s", tok[0], tok[1]));
-        if (tok[0].equals(String.valueOf(field)))
-            return line;
-
-        pos = pos + line.length() + System.lineSeparator().length();
-        return findLineByIdRec(aFile, field, pos);
-    }
-
-    private static boolean isLineExist(RandomAccessFile aFile, Object field, long pos) throws IOException {
-        aFile.seek(pos);
-        String line = aFile.readLine();
-        if (line == null || line.isEmpty())
-            return false;
-
-
-        if (line.equals(field))
-            return true;
-
-        pos = pos + line.length() + System.lineSeparator().length();
-        return isLineExist(aFile, field, pos);
-    }
-
 }

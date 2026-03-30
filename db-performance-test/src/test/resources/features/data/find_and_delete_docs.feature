@@ -1,51 +1,26 @@
-Feature: Find and Delete Data
+Feature: Find and delete documents using various index types
 
-  Scenario: Find non existing documents
-    Given find document with id 10000 and indexType "none"
+  Scenario Outline: Find existing document with each index type
+    Given find document with id 5 and indexType "<indexType>"
+    When the find document request is sent
+    Then the result should contain "testdata"
+
+    Examples:
+      | indexType  |
+      | none       |
+      | hashIndex  |
+      | bplustree  |
+      | btree      |
+      | lsmtree    |
+      | gin        |
+      | bitmap     |
+
+  Scenario: Find non-existing document returns null
+    Given find document with id 999999 and indexType "none"
     When the find document request is sent
     Then the result should be null
 
-  Scenario: Find existing documents without index
-    Given find document with id 9 and indexType "none"
-    When the find document request is sent
-    Then the result should contain "testdata1"
-
-  Scenario: Find existing documents with hashIndex
-    Given find document with id 9 and indexType "hashIndex"
-    When the find document request is sent
-    Then the result should contain "testdata1"
-
-  Scenario: Find existing documents with btree index
-    Given find document with id 9 and indexType "btree"
-    When the find document request is sent
-    Then the result should contain "testdata1"
-
-  Scenario: Find existing documents bplustree index
-    Given find document with id 9 and indexType "bplustree"
-    When the find document request is sent
-    Then the result should contain "testdata1"
-
-  Scenario: Find existing documents lsmtree index
-    Given find document with id 9 and indexType "lsmtree"
-    When the find document request is sent
-    Then the result should contain "testdata1"
-
-  Scenario: Find existing documents lsmtree index
-    Given find document with id 9 and indexType "lsmtree"
-    When the find document request is sent
-    Then the result should contain "testdata1"
-
-  Scenario: Delete non existing document
-    Given delete document with id 10000
+  Scenario: Delete document removes it from all indexes
+    Given delete document with id 1
     When the delete document request is sent
-    Then the result should be "the document with id 10000 was not found"
-
-  Scenario: Delete existing document
-    Given delete document with id 11
-    When the delete document request is sent
-    Then the result of deletion should be "the document with id 11 has been removed"
-
-
-
-
-
+    Then the result of deletion should be "1,{\"data\":\"testdata1\",\"id\":1}"

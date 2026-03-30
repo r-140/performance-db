@@ -7,21 +7,32 @@
         <groupId>com.iu.db.indexes</groupId>
         <version>1.0-SNAPSHOT</version>
     </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>db-indexes</artifactId>
+
     <dependencies>
-        <dependency>
-            <groupId>com.iu.db.indexes</groupId>
-            <artifactId>common</artifactId>
-        </dependency>
         <dependency>
             <groupId>com.iu.db.indexes</groupId>
             <artifactId>db-server-common</artifactId>
             <version>1.0-SNAPSHOT</version>
-            <scope>compile</scope>
+        </dependency>
+
+        <!-- JUnit 5 for unit tests of index structures -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
-    <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>indexes</artifactId>
-
-
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>

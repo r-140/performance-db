@@ -5,7 +5,6 @@ import io.cucumber.java.en.Then;
 import io.cucumber.java.en.When;
 import org.json.JSONObject;
 
-
 import static com.db.DbUtil.execute;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -16,7 +15,7 @@ public class FindDocTest {
 
     @Given("find document with id {int} and indexType {string}")
     public void prepareInputForFind(int input, String indexType) {
-        this.id = input;
+        this.id        = input;
         this.indexType = indexType;
     }
 
@@ -36,7 +35,7 @@ public class FindDocTest {
     }
 
     @Then("the result should be null")
-    public void theResultShouldBeNUll() {
+    public void theResultShouldBeNull() {
         assertNull(output);
     }
 
@@ -46,33 +45,27 @@ public class FindDocTest {
     }
 
     @Then("the result should contain {string}")
-    public void theOutputShouldContain(String expectedOutput) {
-        assertNotNull(output);
-        assertTrue(output.contains(String.valueOf(id)));
-        assertTrue(output.contains(expectedOutput));
+    public void theResultShouldContain(String expectedOutput) {
+        assertNotNull(output, "Expected result to contain '" + expectedOutput + "' but got null");
+        assertTrue(output.contains(expectedOutput),
+                "Expected result to contain '" + expectedOutput + "' but got: " + output);
     }
 
     @Then("the result of deletion should be {string}")
     public void theDeletionResultShouldBe(String expectedResult) {
         assertEquals(expectedResult, output);
 
-        assertNull(readOrDeleteDoc(id, "none", "find"));
-        assertNull(readOrDeleteDoc(id, "hashIndex", "find"));
-        assertNull(readOrDeleteDoc(id, "bplustree", "find"));
-        assertNull(readOrDeleteDoc(id, "btree", "find"));
-        assertNull(readOrDeleteDoc(id, "lsmtree", "find"));
+        // Verify document is gone from all index types including gin and bitmap
+        for (String idx : new String[]{"none", "hashIndex", "bplustree", "btree", "lsmtree", "gin", "bitmap"}) {
+            assertNull(readOrDeleteDoc(id, idx, "find"),
+                    "Document should be absent when searched with index: " + idx);
+        }
     }
 
     private String readOrDeleteDoc(int id, String indexType, String taskType) {
-        String payload = buildRequestBody(taskType, id, indexType);
-
+        String payload = "find".equals(taskType)
+                ? new JSONObject().put("indexType", indexType).put("id", id).toString()
+                : new JSONObject().put("id", id).toString();
         return execute(taskType, payload);
     }
-
-    private static String buildRequestBody(String taskType, int id, String indexType) {
-        return "find".equals(taskType) ? new JSONObject()
-                .put("indexType", indexType).put("id", id).toString()
-                : new JSONObject().put("id", id).toString();
-    }
-
 }

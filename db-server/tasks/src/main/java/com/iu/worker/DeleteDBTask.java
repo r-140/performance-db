@@ -6,18 +6,13 @@ import com.json.JsonHelper;
 
 import java.io.IOException;
 import java.net.Socket;
-import java.util.concurrent.locks.StampedLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.iu.worker.util.IndexHelper.checkIndexExistence;
-import static com.iu.worker.util.IndexHelper.deleteIndexFromRegistry;
+import static com.iu.worker.FindDocumentTask.lock;
 
 class DeleteDBTask extends AbstractTask {
-
     private static final Logger LOGGER = Logger.getLogger(DeleteDBTask.class.getName());
-
-    private static final StampedLock lock = new StampedLock();
 
     DeleteDBTask(Socket connection, String taskPayload) {
         super(connection, taskPayload);
@@ -27,34 +22,25 @@ class DeleteDBTask extends AbstractTask {
     public Void call() {
         long stamp = lock.writeLock();
         try {
-            LOGGER.log(Level.INFO, String.format("Delete db task %s", taskPayload));
-
+            LOGGER.log(Level.INFO, "DeleteDBTask");
             FileHelper.removeFile(PATH_TO_DATA_FILE);
-
-            for (IndexTypes indexTypes : IndexTypes.values()) {
-                if (indexTypes.equals(IndexTypes.NONE)) {
-                    continue;
+            for (IndexTypes it : IndexTypes.values()) {
+                if (!it.equals(IndexTypes.NONE)) {
+                    try { it.deleteIndex(); } catch (Exception e) {
+                        LOGGER.log(Level.WARNING, "deleteIndex failed for " + it.getIndexType(), e);
+                    }
                 }
-                indexTypes.deleteIndex();
             }
-
             writeResponse(connection, "the database was deleted");
-
         } catch (IOException e) {
-            //report exception somewhere.
-            writeResponse(connection, JsonHelper.buildErrorResponse(ErrorCode.IOEXCEPTION.getErrorCode(),
+            writeResponse(connection, JsonHelper.buildErrorResponse(
+                    ErrorCode.IOEXCEPTION.getErrorCode(),
                     ErrorCode.IOEXCEPTION.getErrorMessage(), e.getMessage()));
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE, "DeleteDBTask IO error", e);
         } finally {
             lock.unlockWrite(stamp);
-            try {
-                connection.close();
-            } catch (IOException e) {
-// ignore;
-            }
+            closeQuietly(connection);
         }
         return null;
     }
-
-
 }

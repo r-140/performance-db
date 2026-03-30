@@ -2,68 +2,39 @@ package com.iu.dbclient;
 
 import com.message.MessageBean;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.net.SocketAddress;
 
-
+/**
+ * Single-use DB connection. Creates a fresh Socket per request.
+ *
+ * Updated for Java 21: MessageBean is now a record — accessor is
+ * bean.taskType() not bean.getTaskType(), but that's internal to this class.
+ */
 public class DBConnection {
 
-    private final Socket socket;
-
     private final String host;
+    private final int    port;
 
-    private final Integer port;
-
-    public DBConnection(String host, Integer port) {
+    public DBConnection(String host, int port) {
         this.host = host;
         this.port = port;
-        this.socket = new Socket();
     }
 
+    public String send(MessageBean bean) throws IOException, ClassNotFoundException {
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), 5_000);
+            socket.setSoTimeout(30_000);
 
-    public synchronized String appendData(MessageBean bean) throws IOException, ClassNotFoundException {
-        return handleRequest(bean);
-    }
-
-    public synchronized String readData(MessageBean bean) throws IOException, ClassNotFoundException {
-        return handleRequest(bean);
-    }
-
-    public synchronized String createIndex(MessageBean bean) throws IOException, ClassNotFoundException {
-        return handleRequest(bean);
-    }
-
-    private synchronized String handleRequest(final MessageBean bean) throws IOException, ClassNotFoundException {
-        bindConnection();
-//        todo specify logic
-        ObjectOutputStream oos = new ObjectOutputStream(socket.getOutputStream());
-        oos.writeObject(bean);
-
-        ObjectInputStream ois = new ObjectInputStream(socket.getInputStream());
-        String message = (String) ois.readObject();
-
-        return message;
-    }
-
-    public void close() {
-        if (!socket.isClosed())
-            try {
-                socket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-    }
-
-    private void bindConnection() {
-        final SocketAddress address = new InetSocketAddress(host, port);
-        try {
-            socket.connect(address);
-        } catch (IOException e) {
-            throw new RuntimeException("Cannot open port " + port, e);
+            new ObjectOutputStream(socket.getOutputStream()).writeObject(bean);
+            return (String) new ObjectInputStream(socket.getInputStream()).readObject();
         }
     }
+
+    // Backward-compatible convenience methods
+    public String appendData(MessageBean bean)  throws IOException, ClassNotFoundException { return send(bean); }
+    public String readData(MessageBean bean)     throws IOException, ClassNotFoundException { return send(bean); }
+    public String createIndex(MessageBean bean)  throws IOException, ClassNotFoundException { return send(bean); }
+    public void   close() { /* socket is closed after each request */ }
 }

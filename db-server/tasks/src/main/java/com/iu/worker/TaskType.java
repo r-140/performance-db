@@ -1,67 +1,42 @@
 package com.iu.worker;
 
 import java.net.Socket;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.concurrent.locks.StampedLock;
-
 
 public enum TaskType {
-    APPEND("append") {
-        @Override
-        public AbstractTask getTask(Socket connection, String taskPayload) {
-            return new AppendDocumentTask(connection, taskPayload);
-        }
-    },
-    FIND("find") {
-        @Override
-        public AbstractTask getTask(Socket connection, String taskPayload) {
-            return new FindDocumentTask(connection, taskPayload);
-        }
-    },
-    CREATE_INDEX("createIndex") {
-        @Override
-        public AbstractTask getTask(Socket connection, String taskPayload) {
-            return new CreateIndexTask(connection, taskPayload);
-        }
-    },
-    DELETE_INDEX("deleteIndex") {
-        @Override
-        public AbstractTask getTask(Socket connection, String taskPayload) {
-            return new DeleteIndexTask(connection, taskPayload);
-        }
-    },
-    DELETE_DOC("delete") {
-        @Override
-        public AbstractTask getTask(Socket connection, String taskPayload) {
-            return new DeleteDocumentTask(connection, taskPayload);
-        }
-    },
-    DELETE_DB("deleteDb") {
-        @Override
-        public AbstractTask getTask(Socket connection, String taskPayload) {
-            return new DeleteDBTask(connection, taskPayload);
-        }
-    }
-    ;
+    APPEND      ("append"),
+    FIND        ("find"),
+    CREATE_INDEX("createIndex"),
+    DELETE_INDEX("deleteIndex"),
+    DELETE_DOC  ("delete"),
+    DELETE_DB   ("deleteDb"),
+    SQL         ("sql");
 
-    private final String taskType;
+    private final String wire;
+    TaskType(String wire) { this.wire = wire; }
+    public String getTaskType() { return wire; }
 
-    TaskType(String taskType) {
-        this.taskType = taskType;
+    public static TaskType getTaskByType(String taskType) {
+        return switch (taskType) {
+            case "append"      -> APPEND;
+            case "find"        -> FIND;
+            case "createIndex" -> CREATE_INDEX;
+            case "deleteIndex" -> DELETE_INDEX;
+            case "delete"      -> DELETE_DOC;
+            case "deleteDb"    -> DELETE_DB;
+            case "sql"         -> SQL;
+            default            -> null;
+        };
     }
 
-    public static TaskType getTaskByType(final String taskType) {
-        for (TaskType taskType1 : TaskType.values()) {
-            if (taskType1.getTaskType().equals(taskType))
-                return taskType1;
-        }
-        return null;
+    public AbstractTask getTask(Socket connection, String taskPayload) {
+        return switch (this) {
+            case APPEND       -> new AppendDocumentTask(connection, taskPayload);
+            case FIND         -> new FindDocumentTask(connection, taskPayload);
+            case CREATE_INDEX -> new CreateIndexTask(connection, taskPayload);
+            case DELETE_INDEX -> new DeleteIndexTask(connection, taskPayload);
+            case DELETE_DOC   -> new DeleteDocumentTask(connection, taskPayload);
+            case DELETE_DB    -> new DeleteDBTask(connection, taskPayload);
+            case SQL          -> new SqlQueryTask(connection, taskPayload);
+        };
     }
-
-    public String getTaskType() {
-        return taskType;
-    }
-
-    public abstract AbstractTask getTask(Socket connection, String taskPayload);
 }
