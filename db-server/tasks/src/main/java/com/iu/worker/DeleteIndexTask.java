@@ -21,7 +21,7 @@ class DeleteIndexTask extends AbstractTask {
     }
 
     @Override
-    public Void call() {
+    public void execute() {
         long stamp = lock.writeLock();
         try {
             LOGGER.log(Level.INFO, "DeleteIndexTask: " + taskPayload);
@@ -30,7 +30,6 @@ class DeleteIndexTask extends AbstractTask {
                 writeResponse(connection, JsonHelper.buildErrorResponse(
                         ErrorCode.UNEXPECTEDINDEXTYPE.getErrorCode(),
                         ErrorCode.UNEXPECTEDINDEXTYPE.getErrorMessage(), ""));
-                return null;
             }
             boolean exists = checkIndexExistence(PATH_TO_INDEX_REGISTRY, taskPayload);
             if (exists) {
@@ -52,6 +51,5 @@ class DeleteIndexTask extends AbstractTask {
             lock.unlockWrite(stamp);
             closeQuietly(connection);
         }
-        return null;
     }
 }

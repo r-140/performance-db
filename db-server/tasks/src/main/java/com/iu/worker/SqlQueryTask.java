@@ -31,7 +31,7 @@ class SqlQueryTask extends AbstractTask {
     }
 
     @Override
-    public Void call() {
+    public void execute() {
         long stamp = lock.readLock(); // SELECT is read-only
         try {
             LOGGER.log(Level.INFO, "SQL query: " + taskPayload);
@@ -66,6 +66,5 @@ class SqlQueryTask extends AbstractTask {
             lock.unlockRead(stamp);
             closeQuietly(connection);
         }
-        return null;
     }
 }

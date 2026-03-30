@@ -24,9 +24,25 @@ public class AbstractTask implements Callable<Void> {
         this.taskPayload = taskPayload;
     }
 
+//    @Override
+//    public Void call() throws Exception {
+//        return null;
+//    }
+
+
     @Override
-    public Void call() throws Exception {
+    public final Void call() {
+        try {
+            execute();
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Task execution failed", e);
+            throw new RuntimeException(e);
+        }
         return null;
+    }
+
+    protected void execute() throws Exception {
+        throw new IllegalStateException("Unknown task");
     }
 
     protected void writeResponse(Socket connection, String body) {

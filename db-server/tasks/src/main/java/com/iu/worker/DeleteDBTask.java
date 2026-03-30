@@ -19,7 +19,7 @@ class DeleteDBTask extends AbstractTask {
     }
 
     @Override
-    public Void call() {
+    public void execute() {
         long stamp = lock.writeLock();
         try {
             LOGGER.log(Level.INFO, "DeleteDBTask");
@@ -41,6 +41,5 @@ class DeleteDBTask extends AbstractTask {
             lock.unlockWrite(stamp);
             closeQuietly(connection);
         }
-        return null;
     }
 }

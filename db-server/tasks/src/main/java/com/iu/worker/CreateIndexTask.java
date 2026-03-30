@@ -21,14 +21,13 @@ class CreateIndexTask extends AbstractTask {
     }
 
     @Override
-    public Void call() {
+    public void execute() {
         long stamp = lock.writeLock();
         try {
             LOGGER.log(Level.INFO, "CreateIndexTask: " + taskPayload);
             IndexTypes indexType = IndexTypes.getIndexByType(taskPayload);
             if (indexType == null || IndexTypes.NONE.equals(indexType)) {
                 writeResponse(connection, "Unexpected Index Type");
-                return null;
             }
             boolean exists = checkIndexExistence(PATH_TO_INDEX_REGISTRY, taskPayload);
             if (!exists) {
@@ -50,6 +49,5 @@ class CreateIndexTask extends AbstractTask {
             lock.unlockWrite(stamp);
             closeQuietly(connection);
         }
-        return null;
     }
 }

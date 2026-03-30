@@ -60,19 +60,18 @@ class FindDocumentTask extends AbstractTask {
     }
 
     @Override
-    public Void call() {
+    public void execute() {
         long stamp = lock.readLock();
         try {
             LOGGER.log(Level.INFO, "FindDocumentTask: " + taskPayload);
 
             // Extract id from legacy payload {"id":42, "indexType":"lsmtree"}
-            int id;
+            int id = 0;
             try {
-                Object raw = com.json.JsonHelper.getValueFromJsonByKey(taskPayload, "id");
+                Object raw = JsonHelper.getValueFromJsonByKey(taskPayload, "id");
                 id = (Integer) raw;
             } catch (Exception e) {
                 writeResponse(connection, null);
-                return null;
             }
 
             // Translate to SQL and run through the full planner → executor pipeline
@@ -99,6 +98,5 @@ class FindDocumentTask extends AbstractTask {
             lock.unlockRead(stamp);
             closeQuietly(connection);
         }
-        return null;
     }
 }

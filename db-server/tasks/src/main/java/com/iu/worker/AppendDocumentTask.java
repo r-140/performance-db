@@ -23,7 +23,7 @@ class AppendDocumentTask extends AbstractTask {
     }
 
     @Override
-    public Void call() {
+    public void execute() {
         long stamp = lock.writeLock();
         try {
             final int    id     = SequenceGenerator.INSTANCE.generateId();
@@ -51,6 +51,5 @@ class AppendDocumentTask extends AbstractTask {
             lock.unlockWrite(stamp);
             closeQuietly(connection);
         }
-        return null;
     }
 }

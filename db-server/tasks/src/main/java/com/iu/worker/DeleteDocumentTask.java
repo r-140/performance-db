@@ -20,7 +20,7 @@ class DeleteDocumentTask extends AbstractTask {
     }
 
     @Override
-    public Void call() {
+    public void execute() {
         long stamp = lock.writeLock();
         try {
             LOGGER.log(Level.INFO, "DeleteDocumentTask: " + taskPayload);
@@ -32,7 +32,6 @@ class DeleteDocumentTask extends AbstractTask {
                         .replace(REPLACE_ID_PATTERN, String.valueOf(idVal));
                 writeResponse(connection, JsonHelper.buildErrorResponse(
                         ErrorCode.DOCUMENTNOTFOUND.getErrorCode(), msg, ""));
-                return null;
             }
 
             FileHelper.removeLineFromFile(PATH_TO_DATA_FILE, found);
@@ -49,6 +48,5 @@ class DeleteDocumentTask extends AbstractTask {
             lock.unlockWrite(stamp);
             closeQuietly(connection);
         }
-        return null;
     }
 }
