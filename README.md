@@ -666,3 +666,259 @@ ObjectInputStream ← String (result or JSON error body)
 |19 | LSMTreeIndex           | Tombstones dropped during SSTable read                      | Tombstones survive `read()` and `write()`        |
 |20 | LSMTreeIndex           | Compaction resurrected deleted keys                         | Tombstoned keys removed during merge             |
 |21 | LSMTreeIndex           | Merged SSTable created in wrong directory                   | Use `dirPrefix` from constructor                 |
+
+---
+
+## OLAP Module (Snowflake Architecture Simulation)
+
+The `olap-server` module simulates Snowflake's columnar architecture in a
+single JVM. It demonstrates the performance mechanisms that make OLAP databases
+fundamentally different from OLTP databases, and why the same SQL query can
+run in milliseconds on a data warehouse versus minutes on a row-store OLTP DB.
+
+### Module Structure
+
+```
+olap-server/src/main/java/com/iu/olap/
+├── storage/
+│   ├── ColumnStore.java       One micro-partition: columnar data + min/max metadata
+│   ├── OlapTable.java         Multi-partition table: routing, Bloom filter, pruning
+│   └── OlapBloomFilter.java   Per-column per-partition Bloom filter
+├── catalog/
+│   └── OlapCatalog.java       Table/schema registry (Snowflake Information Schema)
+├── index/
+│   └── OlapInvertedIndex.java Posting-list index simulating Snowflake SOS
+├── query/
+│   └── OlapQueryEngine.java   Three-level pruning query executor + aggregates
+└── join/
+    ├── OlapJoin.java           Broadcast, Hash (shuffle), Sort-Merge join
+    └── OltpJoin.java           Nested-loop, Index-NLJ, Hash join (OLTP style)
+```
+
+### Row Store vs Column Store
+
+```
+Row store (our OLTP DB):
+  Row 0: [id=0, name="Alice", age=30, salary=90000]
+  Row 1: [id=1, name="Bob",   age=25, salary=70000]
+  SELECT AVG(salary) → must read ALL columns of ALL rows
+
+Column store (OLAP, ColumnStore.java):
+  id:     [0, 1, 2, ...]
+  name:   ["Alice", "Bob", ...]
+  salary: [90000, 70000, ...]
+  SELECT AVG(salary) → reads ONLY the salary column
+```
+
+For a 100-column table with 1B rows, a single-column aggregate reads
+1/100th of the data. This is the core OLAP performance advantage.
+
+### Snowflake Micro-Partition Architecture
+
+A Snowflake table is physically stored as thousands of **immutable micro-partitions**
+(50–500 MB each) spread across S3/Azure/GCS. Each micro-partition stores:
+- All column data in compressed columnar format (LZ4 or Zstd, typically 5-10x compression)
+- **Metadata**: min and max value per column, row count, distinct value estimates
+
+`ColumnStore` represents one micro-partition. `OlapTable` manages the collection.
+
+### Three-Level Partition Pruning
+
+For a query `WHERE order_date = 20240315` against 1000 micro-partitions:
+
+```
+Level 1 — Inverted index (OlapInvertedIndex):
+  posting_list["order_date:20240315"] → {partition_42, partition_137}
+  Prune: 998 partitions. No disk read needed for any of them.
+
+Level 2 — Min/max metadata (ColumnStore.canPrune):
+  partition_42:  min=20240310, max=20240320 → 20240315 in range → SCAN
+  partition_137: min=20240301, max=20240401 → 20240315 in range → SCAN
+  Remaining partitions further pruned by date range check.
+
+Level 3 — Bloom filter (OlapBloomFilter):
+  partition_42.bloom.mightContain(20240315) → true  → scan
+  Any partition where Bloom says false → skip (no false negatives)
+
+Final: typically 1-2 partitions scanned out of 1000 → ~500x speedup.
+```
+
+### Clustered Key
+
+```java
+// In Snowflake: ALTER TABLE orders CLUSTER BY (order_date)
+catalog.setClusteredKey("public", "orders", "order_date");
+```
+
+Without clustering, rows arrive in insertion order — dates are scattered across
+all partitions. With clustering, rows with similar dates land in the same partition.
+
+Effect on pruning: date-range queries prune by min/max in O(1) instead of needing
+a full inverted index scan. Most partitions become prunable after clustering.
+
+Cost: Snowflake runs clustering as a background service. It only pays off for:
+- High-cardinality columns (many distinct dates → fine-grained ranges)
+- Queries that consistently filter on the same column
+
+### Inverted Index (Search Optimisation Service)
+
+```java
+// In Snowflake: ALTER TABLE t ADD SEARCH OPTIMIZATION ON EQUALITY(region)
+engine.buildInvertedIndex("public", "orders", "region");
+```
+
+`OlapInvertedIndex` maps each token to the set of micro-partitions containing it:
+
+```
+"region:EU"   → {partition_0, partition_2, partition_4}
+"region:US"   → {partition_1, partition_3}
+"region:APAC" → {partition_2}
+```
+
+A query `WHERE region = 'EU'` checks the posting list in O(1) and only scans
+3 out of N partitions. Without SOS every partition would be read.
+
+**Comparison with OLTP GIN index:**
+
+| Feature       | OLTP GIN (OLTP DB)        | OLAP Inverted (this)        |
+|---------------|---------------------------|-----------------------------|
+| Points to     | File byte offsets         | Partition IDs + row indices |
+| Used for      | Row retrieval             | Partition pruning           |
+| Data layout   | Flat row-oriented file    | Columnar micro-partitions   |
+| Index stored  | In the index module       | Separate from column data   |
+
+### OLAP vs OLTP Join Strategies
+
+#### OLAP Joins (OlapJoin.java) — for large tables
+
+**Broadcast Join** — replicate the small (dimension) table to every compute node:
+```
+Build:  scan customers (M rows) → hash map[customer_id → row]   O(M)
+Probe:  scan orders (N rows) → lookup in hash map               O(N)
+Total:  O(N + M), inner table in memory
+When:   inner table < ~8 MB (Snowflake default threshold)
+```
+
+**Hash Join / Shuffle Join** — partition both tables on the join key:
+```
+Partition orders    by hash(customer_id) into B buckets          O(N)
+Partition customers by hash(customer_id) into B buckets          O(M)
+Join matching buckets (each bucket pair is a small broadcast)    O(N/B + M/B)
+Total:  O(N + M), parallelisable across B nodes/buckets
+When:   both tables are large, enough memory for partitions
+```
+
+**Sort-Merge Join** — sort both sides then merge in one pass:
+```
+Sort orders    by customer_id     O(N log N) or O(1) if clustered
+Sort customers by customer_id     O(M log M) or O(1) if clustered
+Merge two sorted streams          O(N + M)
+When:   tables are pre-clustered on the join key (effectively free sort)
+```
+
+#### OLTP Joins (OltpJoin.java) — for small post-index result sets
+
+**Nested-Loop Join** — O(N × M):
+```java
+for each outerRow:           // N = 1 after index lookup
+    for each innerRow:       // M = full inner table scan
+        if matches: emit
+```
+Acceptable ONLY when N is tiny (1–few rows from a primary key lookup).
+
+**Index Nested-Loop Join** — O(N × log M):
+```java
+for each outerRow:                          // N = 1-100 rows
+    key = outerRow.getJoinColumnValue()
+    innerRow = index.get(key)               // O(log M) or O(1)
+    emit(outerRow, innerRow)
+```
+The dominant OLTP join pattern. Foreign keys are almost always indexed.
+
+**Hash Join** — O(N + M):
+```java
+buildMap = HashMap(innerTable.groupBy(joinKey))   // O(M)
+for each outerRow:
+    matches = buildMap.get(outerRow.joinValue)      // O(1)
+    emit each match
+```
+Used when no index and N is moderate. PostgreSQL uses this automatically.
+
+#### OLTP vs OLAP join — same result, different path
+
+```
+OLAP on orders(10M rows) JOIN customers(10K rows):
+  Broadcast join: broadcast 10K customers → each node probes locally
+  No index needed, parallelised across virtual warehouses
+  Cost: O(N + M) distributed
+
+OLTP on orders JOIN customers WHERE order_id = 42:
+  Index lookup: order_id=42 → 1 row in orders
+  Index NLJ: customer_id=1 → 1 probe in customers index
+  Cost: O(log N) + O(log M) ≈ 2 disk reads
+```
+
+The OLTP path is faster for single-row lookups; OLAP wins for full-table joins.
+
+### Running OLAP Tests
+
+No server required — all OLAP tests are pure unit/integration tests:
+
+```bash
+cd olap-server
+mvn test
+```
+
+Runs:
+- `ColumnStoreTest` — columnar read, pruning, clustering, aggregates
+- `OlapJoinTest`   — all three OLAP join strategies
+- `OltpJoinTest`   — all three OLTP join strategies
+- `OlapIntegrationTest` — full stack: catalog, inverted index, query engine,
+  OLTP vs OLAP join comparison, Bloom filter no-false-negatives
+
+---
+
+## Task Architecture (AbstractTask refactor)
+
+The task execution model was refactored to use a `final call() / override execute()` split:
+
+```java
+// AbstractTask
+public final Void call() {       // called by virtual-thread executor
+    try {
+        execute();               // subclass logic here
+    } catch (Exception e) {
+        throw new RuntimeException(e); // no checked exceptions escape
+    }
+    return null;
+}
+
+protected void execute() throws Exception {
+    throw new IllegalStateException("not implemented");
+}
+```
+
+**Benefits:**
+- `VirtualThreadDbServer.handleConnection()` stays clean:
+  `ScopedValue.where(CURRENT_CONNECTION, conn).run(task::call)` — `Runnable.run()` has no checked throws
+- Subclasses override `execute()` with `throws Exception` — no boilerplate try/catch needed
+- `call()` is final — the exception wrapping contract cannot be broken by subclasses
+- All tasks use `SharedLock` (a dedicated class) instead of importing a lock from `FindDocumentTask`
+
+### SharedLock
+
+```java
+public final class SharedLock {
+    public static final StampedLock lock = new StampedLock();
+}
+```
+
+| Task                  | Lock type   | Reason                            |
+|-----------------------|-------------|-----------------------------------|
+| FindDocumentTask      | readLock    | Concurrent reads are safe         |
+| SqlQueryTask          | readLock    | SELECT is read-only               |
+| AppendDocumentTask    | writeLock   | Modifies data file + all indexes  |
+| DeleteDocumentTask    | writeLock   | Modifies data file + all indexes  |
+| CreateIndexTask       | writeLock   | Modifies index registry           |
+| DeleteIndexTask       | writeLock   | Modifies index registry           |
+| DeleteDBTask          | writeLock   | Deletes everything                |

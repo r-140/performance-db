@@ -10,53 +10,101 @@ class SqlParserTest {
 
     private final SqlParser parser = new SqlParser();
 
-    @Test
-    void parse_selectAll() {
-        var stmt = parser.parse("SELECT * FROM data");
-        assertEquals("data", stmt.table());
-        assertNull(stmt.where());
-        assertEquals(-1, stmt.limit());
+    // ── Simple SELECT ────────────────────────────────────────────────────
+
+    @Test void selectAll() {
+        var s = parser.parse("SELECT * FROM data");
+        assertEquals("data", s.table()); assertNull(s.join()); assertNull(s.where()); assertEquals(-1, s.limit());
     }
 
-    @Test
-    void parse_whereId() {
-        var stmt = parser.parse("SELECT * FROM data WHERE id = 42");
-        assertNotNull(stmt.where());
-        assertEquals("id",  stmt.where().predicate().field());
-        assertEquals("42",  stmt.where().predicate().value());
+    @Test void selectWithWhereId() {
+        var s = parser.parse("SELECT * FROM data WHERE id = 42");
+        assertNotNull(s.where()); assertEquals("id", s.where().predicate().field()); assertEquals("42", s.where().predicate().value());
     }
 
-    @Test
-    void parse_whereStringValue() {
-        var stmt = parser.parse("SELECT * FROM data WHERE data = 'testdata5'");
-        assertEquals("data",      stmt.where().predicate().field());
-        assertEquals("testdata5", stmt.where().predicate().value());
+    @Test void selectWithStringValue() {
+        var s = parser.parse("SELECT * FROM data WHERE data = 'testdata5'");
+        assertEquals("testdata5", s.where().predicate().value());
     }
 
-    @Test
-    void parse_withLimit() {
-        var stmt = parser.parse("SELECT * FROM data LIMIT 10");
-        assertEquals(10, stmt.limit());
-        assertNull(stmt.where());
+    @Test void selectWithLimit() {
+        var s = parser.parse("SELECT * FROM data LIMIT 10");
+        assertEquals(10, s.limit()); assertNull(s.where());
     }
 
-    @Test
-    void parse_fullQuery() {
-        var stmt = parser.parse("SELECT * FROM data WHERE id = 5 LIMIT 1");
-        assertEquals("id",  stmt.where().predicate().field());
-        assertEquals("5",   stmt.where().predicate().value());
-        assertEquals(1,     stmt.limit());
+    @Test void selectWhereAndLimit() {
+        var s = parser.parse("SELECT * FROM data WHERE id = 5 LIMIT 1");
+        assertEquals("5", s.where().predicate().value()); assertEquals(1, s.limit());
     }
+
+    // ── JOIN queries ──────────────────────────────────────────────────────
+
+    @Test void parseJoin_basicInnerJoin() {
+        var s = parser.parse("SELECT * FROM data JOIN lookup ON data.customer_id = lookup.id");
+        assertNotNull(s.join(), "JoinClause must be parsed");
+        assertEquals("lookup",      s.join().rightTable());
+        assertEquals("customer_id", s.join().leftCol());
+        assertEquals("id",          s.join().rightCol());
+        assertEquals(SqlNode.JoinType.AUTO, s.join().joinType());
+    }
+
+    @Test void parseJoin_withInnerKeyword() {
+        var s = parser.parse("SELECT * FROM data INNER JOIN lookup ON id = customer_id");
+        assertNotNull(s.join());
+        assertEquals("lookup", s.join().rightTable());
+    }
+
+    @Test void parseJoin_hashHint() {
+        var s = parser.parse("SELECT * FROM data JOIN lookup ON id = cid HASH");
+        assertNotNull(s.join());
+        assertEquals(SqlNode.JoinType.HASH, s.join().joinType());
+    }
+
+    @Test void parseJoin_nestedLoopHint() {
+        var s = parser.parse("SELECT * FROM data JOIN lookup ON id = cid NESTED_LOOP");
+        assertEquals(SqlNode.JoinType.NESTED_LOOP, s.join().joinType());
+    }
+
+    @Test void parseJoin_withWhereClause() {
+        var s = parser.parse("SELECT * FROM data JOIN lookup ON id = cid WHERE id = 42");
+        assertNotNull(s.join());
+        assertNotNull(s.where());
+        assertEquals("42", s.where().predicate().value());
+    }
+
+    @Test void parseJoin_withLimit() {
+        var s = parser.parse("SELECT * FROM data JOIN lookup ON id = cid LIMIT 5");
+        assertNotNull(s.join());
+        assertEquals(5, s.limit());
+    }
+
+    @Test void parseJoin_withWhereAndLimit() {
+        var s = parser.parse("SELECT * FROM data JOIN lookup ON id = cid WHERE id = 1 LIMIT 10");
+        assertNotNull(s.join()); assertNotNull(s.where()); assertEquals(10, s.limit());
+    }
+
+    @Test void parseJoin_stripsTablePrefix() {
+        // "data.customer_id" → "customer_id", "lookup.id" → "id"
+        var s = parser.parse("SELECT * FROM data JOIN ref ON data.customer_id = ref.id");
+        assertEquals("customer_id", s.join().leftCol());
+        assertEquals("id",          s.join().rightCol());
+    }
+
+    // ── Format variants ──────────────────────────────────────────────────
 
     @ParameterizedTest
     @ValueSource(strings = {
-        "SELECT * FROM data;",          // semicolon ok
-        "select * from DATA where id = 1", // case-insensitive
-        "SELECT  *  FROM  data  WHERE  id  =  7", // extra spaces
+        "SELECT * FROM data;",
+        "select * from DATA where id = 1",
+        "SELECT  *  FROM  data  WHERE  id  =  7",
+        "SELECT * FROM data JOIN ref ON id = cid",
+        "SELECT * FROM data INNER JOIN ref ON id = cid HASH",
     })
-    void parse_toleratesFormatVariants(String sql) {
+    void toleratesFormatVariants(String sql) {
         assertDoesNotThrow(() -> parser.parse(sql));
     }
+
+    // ── Unsupported statements ────────────────────────────────────────────
 
     @ParameterizedTest
     @ValueSource(strings = {
@@ -65,7 +113,7 @@ class SqlParserTest {
         "UPDATE data SET x=1",
         "",
     })
-    void parse_unsupportedSql_throws(String sql) {
+    void unsupportedSql_throws(String sql) {
         assertThrows(SqlParser.SqlParseException.class, () -> parser.parse(sql));
     }
 }

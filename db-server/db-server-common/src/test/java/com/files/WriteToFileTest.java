@@ -1,12 +1,11 @@
 package com.files;
 
-
-
-import org.junit.jupiter.api.Disabled;
+import org.junit.FixMethodOrder;
+import org.junit.Ignore;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.io.TempDir;
-
+import org.junit.runners.MethodSorters;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -15,7 +14,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@Disabled
+@Ignore
+@FixMethodOrder(MethodSorters.NAME_ASCENDING)
 public class WriteToFileTest extends AbstractTest{
     @TempDir
     Path tempDir;

@@ -1,6 +1,6 @@
 package com.files;
 
-import org.junit.jupiter.api.Disabled;
+import org.junit.Ignore;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
@@ -10,7 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
-@Disabled
+@Ignore
 public class DeleteLineFromFileTest extends AbstractTest{
     @TempDir
     Path tempDir;

@@ -3,22 +3,25 @@ package com.iu.indexes.transaction;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * MVCC (Multi-Version Concurrency Control) transaction context.
+ * MVCC transaction context.
  *
- * Each transaction is assigned a monotonically increasing transaction id (txId).
- * Records written during a transaction are tagged with that txId; readers only
- * see records whose write txId ≤ their snapshot txId (for REPEATABLE_READ /
- * SERIALIZABLE), or ≤ the latest committed txId (for READ_COMMITTED).
+ * canSee() visibility rules per isolation level:
  *
- * This class is intentionally simple — it models the concept rather than
- * implementing a full WAL-backed MVCC engine.
+ *   ROLLED_BACK records are NEVER visible regardless of isolation level.
+ *   A rolled-back transaction never committed, so its writes must be
+ *   completely invisible — even to READ_UNCOMMITTED.
+ *
+ *   READ_UNCOMMITTED: see ACTIVE and COMMITTED records.
+ *   READ_COMMITTED:   see only COMMITTED records (re-evaluated per read).
+ *   REPEATABLE_READ:  see only COMMITTED records with writerTxId <= snapshotTxId.
+ *   SERIALIZABLE:     same as REPEATABLE_READ in this MVCC model.
  */
 public class TransactionContext {
 
     private static final AtomicLong TX_COUNTER = new AtomicLong(0);
 
     private final long txId;
-    private final long snapshotTxId;     // largest committed txId at START of this tx
+    private final long snapshotTxId;
     private final TransactionIsolationLevel isolationLevel;
     private volatile TransactionStatus status;
 
@@ -39,30 +42,31 @@ public class TransactionContext {
     public boolean isActive() { return status == TransactionStatus.ACTIVE; }
 
     /**
-     * Determines whether this transaction should see a record written by
-     * {@code writerTxId}.
+     * Can this transaction see a record written by writerTxId with writerStatus?
      *
-     * Rules:
-     *  READ_UNCOMMITTED – see everything, even uncommitted writes.
-     *  READ_COMMITTED   – see only records whose writer has already committed,
-     *                     evaluated at the moment of each read (no snapshot).
-     *  REPEATABLE_READ  – see only records committed before this tx started
-     *                     (snapshotTxId).
-     *  SERIALIZABLE     – same snapshot as REPEATABLE_READ; phantom prevention
-     *                     requires a predicate lock on top (not modelled here).
+     * ROLLED_BACK is invisible at every level — a transaction that rolled back
+     * never committed, so it is as if its writes never happened.
      */
     public boolean canSee(long writerTxId, TransactionStatus writerStatus) {
+        // Rolled-back writes are invisible to everyone, always.
+        if (writerStatus == TransactionStatus.ROLLED_BACK) return false;
+
         return switch (isolationLevel) {
-            case READ_UNCOMMITTED -> true;
-            case READ_COMMITTED   -> writerStatus == TransactionStatus.COMMITTED;
-            case REPEATABLE_READ,
-                 SERIALIZABLE     -> writerTxId <= snapshotTxId &&
-                                     writerStatus == TransactionStatus.COMMITTED;
+            case READ_UNCOMMITTED ->
+                // See ACTIVE and COMMITTED, but never ROLLED_BACK (handled above)
+                true;
+            case READ_COMMITTED ->
+                // Only committed writes; re-evaluated at each read (no snapshot)
+                writerStatus == TransactionStatus.COMMITTED;
+            case REPEATABLE_READ, SERIALIZABLE ->
+                // Only writes committed before this transaction started
+                writerTxId <= snapshotTxId && writerStatus == TransactionStatus.COMMITTED;
         };
     }
 
     @Override
     public String toString() {
-        return "Tx{id=" + txId + ",snap=" + snapshotTxId + ",lvl=" + isolationLevel + ",st=" + status + "}";
+        return "Tx{id=" + txId + ",snap=" + snapshotTxId
+             + ",lvl=" + isolationLevel + ",st=" + status + "}";
     }
 }

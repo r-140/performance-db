@@ -246,9 +246,11 @@ public class BTreeIndex {
             long v = file.readLong();
             node.values[i] = (v == -1L) ? null : v;
         }
+        // Read all child positions first, then recurse — avoids file-pointer corruption
+        long[] childPositions = new long[2*t];
+        for (int i = 0; i < 2*t; i++) childPositions[i] = file.readLong();
         for (int i = 0; i < 2*t; i++) {
-            long childPos = file.readLong();
-            if (childPos != -1L) node.children[i] = readNode(childPos);
+            if (childPositions[i] != -1L) node.children[i] = readNode(childPositions[i]);
         }
         return node;
     }

@@ -11,9 +11,15 @@
   <artifactId>db-performance-test</artifactId>
 
   <dependencies>
+    <!-- Client and server modules needed for step defs -->
     <dependency>
       <groupId>com.iu.db.indexes</groupId>
       <artifactId>db-client</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.iu.db.indexes</groupId>
+      <artifactId>indexes</artifactId>
+      <version>1.0-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.json</groupId>
@@ -33,14 +39,14 @@
       <scope>test</scope>
     </dependency>
 
-    <!-- JUnit 4 runner for Cucumber (cucumber-junit requires it) -->
+    <!-- JUnit 4 runner (required by cucumber-junit) -->
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <scope>test</scope>
     </dependency>
 
-    <!-- JUnit 5 for step assertions -->
+    <!-- JUnit 5 for assertions in step defs -->
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
@@ -64,6 +70,15 @@
           <includes>
             <include>**/CucumberTest.java</include>
           </includes>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>21</source>
+          <target>21</target>
+          <compilerArgs><arg>--enable-preview</arg></compilerArgs>
         </configuration>
       </plugin>
     </plugins>

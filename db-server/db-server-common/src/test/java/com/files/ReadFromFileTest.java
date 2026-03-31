@@ -1,20 +1,19 @@
 package com.files;
 
 
-
+import org.junit.Ignore;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Map;
 
-
+import static org.junit.Assert.assertEquals;
 
 /**
  * Created by Illia_Ushakov on 4/22/2019.
  */
-@Disabled
+@Ignore
 public class ReadFromFileTest extends AbstractTest{
 //
     @Test

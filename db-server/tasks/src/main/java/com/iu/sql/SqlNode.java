@@ -3,43 +3,52 @@ package com.iu.sql;
 import java.util.List;
 
 /**
- * Minimal SQL AST using sealed interfaces + records (Java 17/21).
+ * SQL AST nodes — sealed interfaces + records (Java 17/21).
  *
- * Only SELECT is supported:
- *   SELECT * FROM <table> [WHERE <field> = <value>] [LIMIT <n>]
- *
- * The sealed hierarchy makes the planner's switch exhaustive — adding a
- * new node type is a compile error until all switches handle it.
+ * Supported grammar:
+ *   SELECT cols FROM table [JOIN table ON col = col] [WHERE col = val] [LIMIT n]
  */
 public sealed interface SqlNode
         permits SqlNode.SelectStatement,
+                SqlNode.JoinClause,
                 SqlNode.WhereClause,
                 SqlNode.EqPredicate {
 
     /**
-     * SELECT * FROM data [WHERE ...] [LIMIT n]
+     * SELECT [cols] FROM table [JOIN ...] [WHERE ...] [LIMIT n]
      *
-     * @param table  table name (only "data" is supported currently)
-     * @param where  optional filter (null = full scan)
-     * @param limit  max rows (-1 = unlimited)
+     * @param table       primary (left) table — always "data" in our OLTP DB
+     * @param join        optional inner join clause
+     * @param where       optional equality filter on the primary table
+     * @param selectCols  columns to return (* = null = all)
+     * @param limit       max rows (-1 = unlimited)
      */
     record SelectStatement(
-            String table,
-            WhereClause where,   // nullable
-            int limit            // -1 = no limit
+            String        table,
+            JoinClause    join,        // nullable
+            WhereClause   where,       // nullable
+            List<String>  selectCols,  // null → SELECT *
+            int           limit
     ) implements SqlNode {}
 
     /**
-     * Wraps a single equality predicate for the WHERE clause.
-     * Compound predicates (AND/OR) can be added as additional subtypes.
+     * INNER JOIN rightTable ON leftCol = rightCol
+     *
+     * @param rightTable  table to join against
+     * @param leftCol     join column from the left table
+     * @param rightCol    join column from the right table
+     * @param joinType    algorithm hint (HASH, NESTED_LOOP, or AUTO)
      */
+    record JoinClause(
+            String   rightTable,
+            String   leftCol,
+            String   rightCol,
+            JoinType joinType
+    ) implements SqlNode {}
+
     record WhereClause(EqPredicate predicate) implements SqlNode {}
 
-    /**
-     * field = value  (e.g. id = 42  or  data = 'testdata5')
-     *
-     * @param field  column name
-     * @param value  literal value as string
-     */
     record EqPredicate(String field, String value) implements SqlNode {}
+
+    enum JoinType { HASH, NESTED_LOOP, AUTO }
 }
