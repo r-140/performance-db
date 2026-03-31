@@ -1,19 +1,19 @@
 package com.collection;
 
 import com.util.CollectionsUtil;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class CollectionUtilTest {
 
     private Map<Integer, Long> hashIndex;
 
-    @Before
+    @BeforeEach
     public void init(){
         hashIndex = new HashMap<>();
         hashIndex.put(0, 0L);
